@@ -1,3 +1,4 @@
+
 name := "serviceInFpScala"
 
 version := "0.1"
@@ -21,4 +22,28 @@ scalacOptions ++= Seq(
   "-feature",
   "-Xfatal-warnings",
   "-Ypartial-unification"
+)
+
+// sbt-buildinfo for generating BuildInfo details
+enablePlugins(BuildInfoPlugin)
+buildInfoPackage := "buildInfo"
+
+// sbt-git is also needed to add git details to BuildInfo
+val gitCommitHash = SettingKey[String]("gitCommitHash")
+gitCommitHash := git.gitHeadCommit.value.getOrElse("No commit yet")
+
+val gitCommitMessage = SettingKey[String]("gitCommitMessage")
+gitCommitMessage := git.gitHeadMessage.value.getOrElse("No commit message")
+
+val gitCommitDate = SettingKey[String]("gitCommitDate")
+gitCommitDate := git.gitHeadCommitDate.value.getOrElse("No commit yet")
+
+val gitCurrentBranch = SettingKey[String]("gitCurrentBranch")
+gitCurrentBranch := git.gitCurrentBranch.value
+
+buildInfoKeys ++= Seq(
+  gitCommitHash,
+  gitCommitMessage,
+  gitCommitDate,
+  gitCurrentBranch
 )
