@@ -14,9 +14,10 @@ object Main extends IOApp {
   def bootstrap(): IO[ExitCode] = {
     implicit val ec: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
 
-    val routes = Routes.default[IO] ()
-
     for {
+      _ <- Migrations.default().migrate
+
+      routes = Routes.default[IO] ()
       exitCode <- WebServer.default(routes).start.compile.drain.as(ExitCode.Success)
     } yield exitCode
   }
