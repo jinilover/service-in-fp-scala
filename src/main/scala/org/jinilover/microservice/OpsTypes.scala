@@ -13,7 +13,5 @@ object OpsTypes {
                          gitCommitDate: String,
                          gitCurrentBranch: String)
 
-  object VersionInfo {
-    implicit val verInfoEncoder: Encoder[VersionInfo] = deriveEncoder
-  }
+  implicit val versionInfoEncoder: Encoder[VersionInfo] = deriveEncoder
 }
