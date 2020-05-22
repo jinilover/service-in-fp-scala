@@ -2,6 +2,7 @@ import sbt._
 
 object Dependencies {
   val doobieV = "0.8.8"
+  val circeV = "0.13.0"
 
   lazy val compile = Seq(
     dep("org.http4s", "0.21.3",
@@ -9,7 +10,8 @@ object Dependencies {
       "http4s-blaze-client",
       "http4s-circe",
       "http4s-dsl"),
-    dep("io.circe", "0.13.0", "circe-generic"),
+    dep("io.circe", circeV,
+      "circe-generic"),
     dep("org.tpolecat", doobieV,
       "doobie-core",
       "doobie-postgres"),
@@ -21,7 +23,8 @@ object Dependencies {
 
   lazy val test = Seq(
     testDep("org.tpolecat", doobieV, "doobie-specs2"),
-    testDep("org.specs2", "4.9.3", "specs2-core")
+    testDep("org.specs2", "4.9.3","specs2-core"),
+    testDep("io.circe", circeV,"circe-parser")
   ).flatten
 
   def testDep(group: String, version: String, pkgs: String*) =

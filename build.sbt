@@ -9,7 +9,7 @@ lazy val root = (project in file("."))
   .settings(
     organization := "org.jinilover",
     name := "microservice",
-    libraryDependencies ++= Dependencies.compile,
+    libraryDependencies ++= Dependencies.compile ++ Dependencies.test,
     addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.10.3"),
     addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1")
   )

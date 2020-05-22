@@ -1,4 +1,4 @@
-package org.jinilover.microservice
+package org.jinilover.microservice.db
 
 import cats.effect.IO
 import org.flywaydb.core.Flyway

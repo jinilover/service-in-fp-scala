@@ -1,4 +1,4 @@
-package org.jinilover.microservice
+package org.jinilover.microservice.web
 
 import cats.effect.{ContextShift, ExitCode, IO, Timer}
 import fs2.Stream
