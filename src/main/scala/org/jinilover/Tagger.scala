@@ -1,4 +1,4 @@
-package org.jinilover.microservice
+package org.jinilover
 
 import scalaz.{@@, Tag}
 

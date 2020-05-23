@@ -1,30 +1,48 @@
 package org.jinilover.microservice.web
 
 import cats.syntax.semigroupk._
+import cats.syntax.flatMap._
 
 import cats.effect.Sync
 
-import io.circe.{Encoder}
+import io.circe.Encoder
 
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
-import org.http4s.{EntityEncoder, EntityDecoder, HttpApp, HttpRoutes}
+import org.http4s.{EntityEncoder, HttpApp, HttpRoutes, QueryParamDecoder}
 
 import org.jinilover.microservice.OpsTypes.VersionInfo
 import org.jinilover.microservice.ops.OpsService
+import org.jinilover.microservice.{InputError, LinkStatus, ServerError}
+import org.jinilover.microservice.LinkTypes._
+import org.jinilover.microservice.link.LinkService
 
 trait Routes[F[_]] {
   def routes: HttpApp[F]
 }
 
 object Routes {
-  def default[F[_]: Sync](opsService: OpsService): Routes[F] =
-    new Http4sRoutes[F](opsService)
+  def default[F[_]: Sync](opsService: OpsService
+                        , linkService: LinkService[F]): Routes[F] =
+    new Http4sRoutes[F](opsService, linkService)
 
-  class Http4sRoutes[F[_]: Sync](opsService: OpsService)
+  class Http4sRoutes[F[_]](opsService: OpsService
+                        , linkService: LinkService[F])(implicit F: Sync[F])
     extends Routes[F]
     with Http4sDsl[F] {
+
+    object OptionalStatusQueryParamMatcher extends OptionalQueryParamDecoderMatcher[LinkStatus]("status")
+    implicit val statusQueryParamDecoder: QueryParamDecoder[LinkStatus] =
+      QueryParamDecoder[String].map { s =>
+        if (s.toUpperCase == LinkStatus.Pending.toString.toUpperCase)
+          LinkStatus.Pending
+        else
+          LinkStatus.Accepted
+      }
+
+    // true means the user initiates the link and o.w.
+    object OptionalIsUserInitiatorQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Boolean]("is_initiator")
 
     implicit def entityEncoder[A: Encoder]: EntityEncoder[F, A] = jsonEncoderOf[F, A]
 
@@ -33,8 +51,6 @@ object Routes {
     def opsRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
       case GET -> Root  => Ok(opsService.welcomeMsg())
       case GET -> Root / "version_info" => Ok(opsService.versionInfo())
-
-
         // just for experiment
 //      case req@POST -> Root / "post_version_info" =>
 //        req.decode[VersionInfo] { verInfo =>
@@ -45,11 +61,22 @@ object Routes {
     def serviceRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
       case req@POST -> Root / "users" / userId / "links" =>
         req.decode[String] { targetId =>
-          Ok(s"targetId = $targetId")
+          F.redeemWith {
+            linkService.addLink(UserId(userId), UserId(targetId))
+          }(
+            {
+              case InputError(err) => BadRequest(err)
+              case ServerError(err) => InternalServerError(err)
+            },
+            linkId => Ok(linkId)
+          )
         }
 
-      case GET -> Root / "users" / userId / "links" =>
-        Ok(s"Get all links of $userId")
+      case GET -> Root / "users" / userId / "links"
+        :? OptionalStatusQueryParamMatcher(linkStatus)
+        :? OptionalIsUserInitiatorQueryParamMatcher(isInitiator) =>
+        val statusMsg = linkStatus.map(s => s"for $s").getOrElse("")
+        Ok(s"Get all links of $userId $statusMsg")
 
       case GET -> Root / "links" / linkId =>
         Ok(s"Get details of $linkId")

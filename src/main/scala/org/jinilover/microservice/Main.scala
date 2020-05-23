@@ -6,6 +6,7 @@ import cats.effect.{ContextShift, ExitCode, IO, IOApp, Timer}
 import cats.implicits._
 
 import org.jinilover.microservice.db.Migrations
+import org.jinilover.microservice.link.LinkService
 import org.jinilover.microservice.web.{Routes, WebServer}
 import org.jinilover.microservice.ops.OpsService
 
@@ -21,7 +22,8 @@ object Main extends IOApp {
     for {
       _ <- Migrations.default().migrate
       opsService = OpsService.default
-      routes = Routes.default[IO] (opsService)
+      linkService = LinkService.default[IO]
+      routes = Routes.default[IO](opsService, linkService)
       exitCode <- WebServer.default(routes).start.compile.drain.as(ExitCode.Success)
     } yield exitCode
   }

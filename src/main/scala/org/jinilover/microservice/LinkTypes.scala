@@ -3,7 +3,10 @@ package org.jinilover.microservice
 import java.time.Instant
 
 import io.circe.{Decoder, Encoder}
+
 import scalaz.{@@, Tag}
+
+import org.jinilover.Tagger
 
 object LinkTypes {
   type UserId = String @@ UserId.Marker
