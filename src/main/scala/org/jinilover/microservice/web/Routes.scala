@@ -4,6 +4,7 @@ package web
 
 import cats.syntax.semigroupk._
 import cats.syntax.flatMap._
+import cats.syntax.monadError._
 
 import cats.effect.Sync
 
@@ -57,15 +58,14 @@ object Routes {
     def serviceRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
       case req@POST -> Root / "users" / userId / "links" =>
         req.decode[String] { targetId =>
-          F.redeemWith {
-            linkService.addLink(UserId(userId), UserId(targetId))
-          }(
-            {
-              case InputError(err) => BadRequest(err)
-              case ServerError(err) => InternalServerError(err)
-            },
-            linkId => Ok(linkId)
-          )
+          linkService.addLink(UserId(userId), UserId(targetId))
+            .redeemWith(
+              {
+                case InputError(err) => BadRequest(err)
+                case ServerError(err) => InternalServerError(err)
+              },
+              linkId => Ok(linkId)
+            )
         }
 
       case GET -> Root / "users" / userId / "links"
