@@ -3,17 +3,16 @@ package microservice
 package web
 
 import cats.syntax.semigroupk._
-import cats.syntax.flatMap._
 import cats.syntax.monadError._
 
 import cats.effect.Sync
 
-import io.circe.Encoder
+import io.circe.{Decoder, Encoder}
 
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
-import org.http4s.{EntityEncoder, HttpApp, HttpRoutes, QueryParamDecoder}
+import org.http4s.{EntityEncoder, EntityDecoder, HttpApp, HttpRoutes, QueryParamDecoder}
 
 import org.jinilover.microservice.ops.OpsService
 import org.jinilover.microservice.{InputError, LinkStatus, ServerError}
@@ -43,7 +42,7 @@ object Routes {
 
     implicit def entityEncoder[A: Encoder]: EntityEncoder[F, A] = jsonEncoderOf[F, A]
 
-//    implicit def entityDecoder[A: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
+    implicit def entityDecoder[A: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
 
     def opsRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
       case GET -> Root  => Ok(opsService.welcomeMsg())
@@ -57,8 +56,8 @@ object Routes {
 
     def serviceRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
       case req@POST -> Root / "users" / userId / "links" =>
-        req.decode[String] { targetId =>
-          linkService.addLink(UserId(userId), UserId(targetId))
+        req.decode[UserId] { targetId =>
+          linkService.addLink(UserId(userId), targetId)
             .redeemWith(
               {
                 case InputError(err) => BadRequest(err)

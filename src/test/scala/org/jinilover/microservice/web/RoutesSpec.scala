@@ -96,13 +96,13 @@ class RoutesSpec extends Specification {
       Request[IO](
         Method.POST,
         uri"/users/eren/links",
-        body = createEntityBody("eren")
+        body = createEntityBody(""""eren"""")
       )
-    val response = routes.routes.run(req).unsafeRunSync
+    val res = routes.routes.run(req).unsafeRunSync
+    val resBody = res.body.compile.toList.unsafeRunSync.toArray.map(_.toChar).mkString
 
-    response.status must be_==(Status.BadRequest)
-    val bodyBytes = response.body.compile.toList.unsafeRunSync.toArray
-    bodyBytes must be_==(""""Both user ids are the same"""".getBytes)
+    (res.status must be_==(Status.BadRequest)) and
+      (resBody must be_==(""""Both user ids are the same""""))
   }
 
 
