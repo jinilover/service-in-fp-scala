@@ -1,4 +1,4 @@
-package org.jinilover.microservice.db
+package org.jinilover.microservice.persistence
 
 import cats.effect.IO
 import org.flywaydb.core.Flyway

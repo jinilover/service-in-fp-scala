@@ -22,12 +22,12 @@ object LinkTypes {
     DA.map(Tag.apply[A, T])
 
   case class Link(id: Option[LinkId]
-                , ownerId: UserId
-                , targetId: UserId
-                , status: LinkStatus
-                , creationDate: Instant
-                , confirmDate: Option[Instant]
-                , uniqueKey: String)
+                  , initiatorId: UserId
+                  , targetId: UserId
+                  , status: LinkStatus
+                  , creationDate: Option[Instant]
+                  , confirmDate: Option[Instant]
+                  , uniqueKey: String)
 }
 
 sealed trait LinkStatus

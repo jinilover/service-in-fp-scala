@@ -1,4 +1,6 @@
-package org.jinilover.microservice.web
+package org.jinilover
+package microservice
+package web
 
 import cats.syntax.semigroupk._
 import cats.syntax.flatMap._
@@ -12,7 +14,6 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
 import org.http4s.{EntityEncoder, HttpApp, HttpRoutes, QueryParamDecoder}
 
-import org.jinilover.microservice.OpsTypes.VersionInfo
 import org.jinilover.microservice.ops.OpsService
 import org.jinilover.microservice.{InputError, LinkStatus, ServerError}
 import org.jinilover.microservice.LinkTypes._
@@ -34,12 +35,7 @@ object Routes {
 
     object OptionalStatusQueryParamMatcher extends OptionalQueryParamDecoderMatcher[LinkStatus]("status")
     implicit val statusQueryParamDecoder: QueryParamDecoder[LinkStatus] =
-      QueryParamDecoder[String].map { s =>
-        if (s.toUpperCase == LinkStatus.Pending.toString.toUpperCase)
-          LinkStatus.Pending
-        else
-          LinkStatus.Accepted
-      }
+      QueryParamDecoder[String].map(toLinkStatus)
 
     // true means the user initiates the link and o.w.
     object OptionalIsUserInitiatorQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Boolean]("is_initiator")

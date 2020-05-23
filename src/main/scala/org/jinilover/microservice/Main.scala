@@ -5,7 +5,7 @@ import java.util.concurrent.Executors
 import cats.effect.{ContextShift, ExitCode, IO, IOApp, Timer}
 import cats.implicits._
 
-import org.jinilover.microservice.db.Migrations
+import org.jinilover.microservice.persistence.Migrations
 import org.jinilover.microservice.link.LinkService
 import org.jinilover.microservice.web.{Routes, WebServer}
 import org.jinilover.microservice.ops.OpsService
