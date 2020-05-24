@@ -60,10 +60,7 @@ object Routes {
         req.decode[UserId] { targetId =>
           linkService.addLink(UserId(userId), targetId)
             .redeemWith(
-              {
-                case InputError(msg) => BadRequest(msg)
-                case ThrowableError(err) => InternalServerError(err.getMessage)
-              },
+              { case InputError(msg) => BadRequest(msg) },
               linkId => Ok(linkId)
             )
         }
