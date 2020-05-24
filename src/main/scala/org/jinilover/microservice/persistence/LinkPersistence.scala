@@ -21,6 +21,7 @@ trait LinkPersistence[F[_]] {
   def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): F[Unit]
   def get(id: LinkId): F[Option[Link]]
   def getLinks(srchCriteria: SearchLinkCriteria): F[List[LinkId]]
+  def remove(id: LinkId): F[Int]
 }
 
 object LinkPersistence {
@@ -72,6 +73,13 @@ object LinkPersistence {
           set status = $status, confirm_date = $confirmDate
           where id = $linkId
         """.update.run.transact(xa).void
+    }
+
+    override def remove(id: LinkId): IO[Int] = {
+      sql"""
+          DELETE FROM links
+          WHERE id = $id
+        """.update.run.transact(xa)
     }
   }
 

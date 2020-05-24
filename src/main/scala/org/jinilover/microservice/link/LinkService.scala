@@ -6,16 +6,16 @@ import java.time.Clock
 import cats.MonadError
 import cats.syntax.monadError._
 import cats.syntax.functor._
-import cats.syntax.flatMap._
 
-import org.jinilover.microservice.{InputError, LinkStatus, ThrowableError}
+import org.jinilover.microservice.{InputError, LinkStatus}
 import org.jinilover.microservice.LinkTypes._
 import org.jinilover.microservice.persistence.LinkPersistence
 
 trait LinkService[F[_]] {
   def addLink(initiatorId: UserId, targetId: UserId): F[LinkId]
-  def acceptLink(linkId: LinkId): F[Unit]
+  def acceptLink(id: LinkId): F[Unit]
   def getLink(id: LinkId): F[Option[Link]]
+  def removeLink(id: LinkId): F[String]
 }
 
 object LinkService {
@@ -54,7 +54,13 @@ object LinkService {
     override def getLink(id: LinkId): F[Option[Link]] =
       persistence.get(id)
 
-    override def acceptLink(linkId: LinkId): F[Unit] =
-      persistence.update(linkId, confirmDate = clock.instant(), status = LinkStatus.Accepted)
+    override def acceptLink(id: LinkId): F[Unit] =
+      persistence.update(id, confirmDate = clock.instant(), status = LinkStatus.Accepted)
+
+    override def removeLink(id: LinkId): F[String] =
+      persistence.remove(id).map {
+        case 0 => s"No need to remove non-exist linkid ${id.unwrap}"
+        case _ => s"Linkid ${id.unwrap} removed successfully"
+      }
   }
 }

@@ -91,7 +91,9 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
         ${step{reasonOfStep}}
         should add links and retrieve the links accordingly $addLinks
         ${step{reasonOfStep}}
-        should update 1 link and retrieve the link accordingly $updateLink
+        should update 1 link and retrieve the link correctly $updateLink
+        ${step{reasonOfStep}}
+        should remove 1 link successfully $removeLink
     """
   }
 
@@ -100,7 +102,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
 
     val linkIdsFromDb = persistence.getLinks(simpleSearch).unsafeRunSync()
 
-    val linkFromDb = persistence.get(linkIdsFromDb(0)).unsafeRunSync()
+    val linkFromDb = persistence.get(linkId).unsafeRunSync()
 
     (linkIdsFromDb must be_==(List(linkId))) and
       (linkFromDb.flatMap(_.id) must beSome) and
@@ -170,6 +172,19 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
       (linkFromDb.flatMap(_.uniqueKey) must beSome("eren_mikasa")) and
       (linkFromDb.map(_.creationDate) must beSome(mika_add_eren.creationDate)) and
       (linkFromDb.flatMap(_.confirmDate) must beSome(confirmDate)) // confirmDate nonEmpty due to update
+  }
+
+  def removeLink = {
+    val linkId = persistence.add(mika_add_eren).unsafeRunSync()
+
+    val count1 = persistence.remove(linkId).unsafeRunSync() // 1
+    val count2 = persistence.remove(linkId).unsafeRunSync() // 0
+
+    val linkIdsFromDb = persistence.getLinks(simpleSearch).unsafeRunSync()
+
+    (count1 must be_==(1)) and
+      (count2 must be_==(0)) and
+      (linkIdsFromDb must beEmpty)
   }
 
   //TODO leave for search query
