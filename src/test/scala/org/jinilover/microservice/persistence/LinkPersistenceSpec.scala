@@ -94,6 +94,8 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
         should update 1 link and retrieve the link correctly $updateLink
         ${step{reasonOfStep}}
         should remove 1 link successfully $removeLink
+        ${step{reasonOfStep}}
+        should add/update links and retrieve the links accordingly $addUpdateLinks
     """
   }
 
@@ -134,9 +136,6 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
       .void
       .unsafeRunSync()
 
-    val linkIds1 = persistence.getLinks(simpleSearch).unsafeRunSync()
-    linkIds1.size must be_==(7)
-
     val srchCriterias = List(
       simpleSearch
     , simpleSearch.copy(linkStatus = Some(LinkStatus.Accepted)) // search `Accepted` only
@@ -158,7 +157,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
     val linkId = persistence.add(mika_add_eren).unsafeRunSync()
 
     val confirmDate = clock.instant()
-    persistence.update(linkId, confirmDate = confirmDate, status = LinkStatus.Accepted).unsafeRunSync()
+    persistence.update(linkId, confirmDate, LinkStatus.Accepted).unsafeRunSync()
 
     val linkIdsFromDb = persistence.getLinks(simpleSearch).unsafeRunSync()
 
@@ -174,6 +173,42 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
       (linkFromDb.flatMap(_.confirmDate) must beSome(confirmDate)) // confirmDate nonEmpty due to update
   }
 
+  def addUpdateLinks = {
+    val linkIds =
+      List(
+        mika_add_eren, reiner_add_eren, bert_add_eren, eren_add_armin, eren_add_annie,
+        eren_add_levi, eren_add_erwin
+      ).traverse(persistence.add)
+        .unsafeRunSync()
+
+    // update the first 2 linkIds to accepted
+    val confirmDate = clock.instant()
+    List(linkIds(0), linkIds(1))
+      .traverse(persistence.update(_, confirmDate, LinkStatus.Accepted))
+      .void
+      .unsafeRunSync()
+
+    val srchCriterias = List(
+        simpleSearch
+      , simpleSearch.copy(linkStatus = Some(LinkStatus.Accepted)) // search `Accepted` only
+      , simpleSearch.copy(linkStatus = Some(LinkStatus.Pending)) // search `Pending` only
+      , simpleSearch.copy(isInitiator = Some(true)) // the user is initiator only
+      , simpleSearch.copy(isInitiator = Some(false)) // the user target only
+      , simpleSearch.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Accepted))
+      , simpleSearch.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Pending))
+      , simpleSearch.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Accepted))
+      , simpleSearch.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Pending))
+    )
+
+    // get the # of records searched for each query
+    val linkSizes = srchCriterias
+      .traverse(persistence.getLinks)
+      .unsafeRunSync()
+      .map(_.size)
+
+    linkSizes must be_==(List(7, 2, 5, 4, 3, 0, 4, 2, 1))
+  }
+
   def removeLink = {
     val linkId = persistence.add(mika_add_eren).unsafeRunSync()
 
@@ -186,16 +221,6 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
       (count2 must be_==(0)) and
       (linkIdsFromDb must beEmpty)
   }
-
-  //TODO leave for search query
-//  val linkIds1 = linkDb.getLinks(sampleCriteria).unsafeRunSync()
-//  linkIds1.size must be_==(7)
-//
-//  val searchPending = sampleCriteria.copy(linkStatus = Some(LinkStatus.Pending))
-//
-//  val searchAccepted = sampleCriteria.copy(linkStatus = Some(LinkStatus.Accepted))
-//
-//  val searchUserIsInititator = sampleCriteria.copy()
 
 
 }
