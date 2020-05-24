@@ -1,5 +1,6 @@
 package org.jinilover
-package microservice.link
+package microservice
+package link
 
 import java.time.Clock
 
@@ -7,9 +8,8 @@ import cats.MonadError
 import cats.syntax.monadError._
 import cats.syntax.functor._
 
-import org.jinilover.microservice.{InputError, LinkStatus}
-import org.jinilover.microservice.LinkTypes._
-import org.jinilover.microservice.persistence.LinkPersistence
+import LinkTypes._
+import persistence.LinkPersistence
 
 trait LinkService[F[_]] {
   def addLink(initiatorId: UserId, targetId: UserId): F[LinkId]

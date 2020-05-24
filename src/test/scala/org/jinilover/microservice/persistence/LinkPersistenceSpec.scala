@@ -19,7 +19,7 @@ import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
 import org.specs2.specification.BeforeEach
 
-import LinkTypes.{Link, SearchLinkCriteria, UserId}
+import MockData._
 
 class LinkPersistenceSpec extends Specification with BeforeEach {
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
@@ -46,36 +46,6 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
     createSchema
 
   val persistence = LinkPersistence.default(xa)
-
-  // sample user id
-  val List(mikasa, eren, armin, annie, reiner, bert, levi, erwin) =
-    List("mikasa", "eren", "armin", "annie", "reiner", "bert", "levi", "erwin").map(UserId.apply)
-
-  // sample links
-  val List(
-      mika_add_eren
-    , reiner_add_eren
-    , bert_add_eren
-    , eren_add_armin
-    , eren_add_annie
-    , eren_add_levi
-    , eren_add_erwin) =
-    List( (mikasa, eren)
-        , (reiner, eren)
-        , (bert, eren)
-        , (eren, armin)
-        , (eren, annie)
-        , (eren, levi)
-        , (eren, erwin) )
-        .map { case (initiator, target) =>
-          Link(initiatorId = initiator
-            , targetId = target
-            , status = LinkStatus.Pending
-            , creationDate = clock.instant)
-        }
-
-  val simpleSearch = SearchLinkCriteria(userId = eren)
-
 
   override def is: SpecStructure = {
     val reasonOfStep = "cannot run in parallel due to accessing the same table `links`"
