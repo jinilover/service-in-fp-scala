@@ -14,6 +14,7 @@ import org.jinilover.microservice.persistence.LinkPersistence
 
 trait LinkService[F[_]] {
   def addLink(initiatorId: UserId, targetId: UserId): F[LinkId]
+  def acceptLink(linkId: LinkId): F[Unit]
   def getLink(id: LinkId): F[Option[Link]]
 }
 
@@ -52,5 +53,8 @@ object LinkService {
 
     override def getLink(id: LinkId): F[Option[Link]] =
       persistence.get(id)
+
+    override def acceptLink(linkId: LinkId): F[Unit] =
+      persistence.update(linkId, confirmDate = clock.instant(), status = LinkStatus.Accepted)
   }
 }

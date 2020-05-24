@@ -43,7 +43,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
   override def before(): Unit =
     createSchema
 
-  val linkDb = LinkPersistence.default(xa)
+  val persistence = LinkPersistence.default(xa)
 
   // sample user id
   val List(mikasa, eren, armin, annie, reiner, bert, levi, erwin) =
@@ -86,21 +86,23 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
     s2"""
       LinkPersistence
         should add 1 link and retrieve the link correctly $addLink
-        ${step{reasonOfStep}}
-        should add links and retrieve the links accordingly $addLinks
         ${step(reasonOfStep)}
         should raise error of unique key violation $violateUniqueKey
+        ${step{reasonOfStep}}
+        should add links and retrieve the links accordingly $addLinks
+        ${step{reasonOfStep}}
+        should update 1 link and retrieve the link accordingly $updateLink
     """
   }
 
   def addLink = {
-    linkDb.add(mika_add_eren).unsafeRunSync()
+    val linkId = persistence.add(mika_add_eren).unsafeRunSync()
 
-    val linkIds = linkDb.getLinks(simpleSearch).unsafeRunSync()
+    val linkIdsFromDb = persistence.getLinks(simpleSearch).unsafeRunSync()
 
-    val linkFromDb = linkDb.get(linkIds(0)).unsafeRunSync()
+    val linkFromDb = persistence.get(linkIdsFromDb(0)).unsafeRunSync()
 
-    (linkIds.size must be_==(1)) and
+    (linkIdsFromDb must be_==(List(linkId))) and
       (linkFromDb.flatMap(_.id) must beSome) and
       (linkFromDb.map(_.initiatorId) must beSome(mikasa)) and
       (linkFromDb.map(_.targetId) must beSome(eren)) and
@@ -110,15 +112,27 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
       (linkFromDb.flatMap(_.confirmDate) must beNone)
   }
 
+  def violateUniqueKey = {
+    val link = mika_add_eren
+
+    persistence.add(link).unsafeRunSync()
+
+    // this time should violate unique key constraint
+    persistence.add(link).unsafeRunSync() must
+      throwAn[PSQLException].like { case e =>
+        e.getMessage.toLowerCase must contain("""violates unique constraint "unique_unique_key"""")
+      }
+  }
+
   def addLinks = {
     List(
       mika_add_eren, reiner_add_eren, bert_add_eren, eren_add_armin, eren_add_annie,
       eren_add_levi, eren_add_erwin
-    ).traverse(linkDb.add)
+    ).traverse(persistence.add)
       .void
       .unsafeRunSync()
 
-    val linkIds1 = linkDb.getLinks(simpleSearch).unsafeRunSync()
+    val linkIds1 = persistence.getLinks(simpleSearch).unsafeRunSync()
     linkIds1.size must be_==(7)
 
     val srchCriterias = List(
@@ -130,11 +144,32 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
 
     // get the # of records searched for each query
     val linkSizes = srchCriterias
-      .traverse(linkDb.getLinks)
+      .traverse(persistence.getLinks)
       .unsafeRunSync()
       .map(_.size)
 
     linkSizes must be_==(List(7, 0, 4, 3))
+  }
+
+  // similar test and check as `addLink` but it update the status/confirmDate afterwards
+  def updateLink = {
+    val linkId = persistence.add(mika_add_eren).unsafeRunSync()
+
+    val confirmDate = clock.instant()
+    persistence.update(linkId, confirmDate = confirmDate, status = LinkStatus.Accepted).unsafeRunSync()
+
+    val linkIdsFromDb = persistence.getLinks(simpleSearch).unsafeRunSync()
+
+    val linkFromDb = persistence.get(linkIdsFromDb(0)).unsafeRunSync()
+
+    (linkIdsFromDb.size must be_==(1)) and
+      (linkFromDb.flatMap(_.id) must beSome) and
+      (linkFromDb.map(_.initiatorId) must beSome(mikasa)) and
+      (linkFromDb.map(_.targetId) must beSome(eren)) and
+      (linkFromDb.map(_.status) must beSome(LinkStatus.Accepted)) and // status must be `Accept` due to update
+      (linkFromDb.flatMap(_.uniqueKey) must beSome("eren_mikasa")) and
+      (linkFromDb.map(_.creationDate) must beSome(mika_add_eren.creationDate)) and
+      (linkFromDb.flatMap(_.confirmDate) must beSome(confirmDate)) // confirmDate nonEmpty due to update
   }
 
   //TODO leave for search query
@@ -147,17 +182,5 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
 //
 //  val searchUserIsInititator = sampleCriteria.copy()
 
-
-  def violateUniqueKey = {
-    val link = mika_add_eren
-
-    linkDb.add(link).unsafeRunSync()
-
-    // this time should violate unique key constraint
-    linkDb.add(link).unsafeRunSync() must
-      throwAn[PSQLException].like { case e =>
-        e.getMessage.toLowerCase must contain("""violates unique constraint "unique_unique_key"""")
-      }
-  }
 
 }
