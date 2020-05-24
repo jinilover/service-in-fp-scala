@@ -50,7 +50,8 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
     List("mikasa", "eren", "armin", "annie", "reiner", "bert", "levi", "erwin").map(UserId.apply)
 
   // sample links
-  val List(mika_add_eren
+  val List(
+      mika_add_eren
     , reiner_add_eren
     , bert_add_eren
     , eren_add_armin
@@ -66,7 +67,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
         , (eren, erwin) )
         .map { case (initiator, target) => Link(initiatorId = initiator, targetId = target) }
 
-  lazy val sampleCriteria =
+  lazy val simpleSearch =
     SearchLinkCriteria(
       userId = eren
       , linkStatus = None
@@ -90,7 +91,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
   def addLink = {
     linkDb.add(mika_add_eren).unsafeRunSync()
 
-    val linkIds = linkDb.getLinks(sampleCriteria).unsafeRunSync()
+    val linkIds = linkDb.getLinks(simpleSearch).unsafeRunSync()
 
     val linkFromDb = linkDb.get(linkIds(0)).unsafeRunSync()
 
@@ -105,14 +106,6 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
   }
 
   def addLinks = {
-//    val mika_add_eren = sampleLink
-//    val reiner_add_eren = sampleLink.copy(initiatorId = reiner, targetId = eren)
-//    val bert_add_eren = sampleLink.copy(initiatorId = bert, targetId = eren)
-//    val eren_add_armin = sampleLink.copy(initiatorId = eren, targetId = armin)
-//    val eren_add_annie = sampleLink.copy(initiatorId = eren, targetId = annie)
-//    val eren_add_levi = sampleLink.copy(initiatorId = eren, targetId = levi)
-//    val eren_add_erwin = sampleLink.copy(initiatorId = eren, targetId = erwin)
-//
     List(
       mika_add_eren, reiner_add_eren, bert_add_eren, eren_add_armin, eren_add_annie,
       eren_add_levi, eren_add_erwin
@@ -120,8 +113,23 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
       .void
       .unsafeRunSync()
 
-    val linkIds1 = linkDb.getLinks(sampleCriteria).unsafeRunSync()
+    val linkIds1 = linkDb.getLinks(simpleSearch).unsafeRunSync()
     linkIds1.size must be_==(7)
+
+    val srchCriterias = List(
+      simpleSearch
+    , simpleSearch.copy(linkStatus = Some(LinkStatus.Accepted)) // search `Accepted` only
+    , simpleSearch.copy(isInitiator = Some(true)) // the user is inititator
+    , simpleSearch.copy(isInitiator = Some(false)) // the user target
+    )
+
+    // get the # of records searched for each query
+    val linkSizes = srchCriterias
+      .traverse(linkDb.getLinks)
+      .unsafeRunSync()
+      .map(_.size)
+
+    linkSizes must be_==(List(7, 0, 4, 3))
   }
 
   //TODO leave for search query

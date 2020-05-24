@@ -11,7 +11,7 @@ import cats.syntax.flatMap._
 import doobie.Transactor
 import doobie.syntax.connectionio._
 import doobie.syntax.string._
-import doobie.Fragments.andOpt
+import doobie.Fragments.{whereAndOpt}
 
 import LinkTypes._
 import Doobie._
@@ -52,10 +52,9 @@ object LinkPersistence {
       val SearchLinkCriteria(userId, linkStatus, isInitiator) = srchCriteria
 
       val byUserId = isInitiator.map { bool =>
-        val srchColumn = if (bool) "initiator_id" else "target_id"
-        fr"$srchColumn = $userId"
-      }.getOrElse(
-        fr"(initiator_id = $userId OR target_id = $userId)"
+        if (bool) fr"initiator_id = $userId" else fr"target_id = $userId"
+      }.orElse(
+        Some(fr"(initiator_id = $userId OR target_id = $userId)")
       )
 
       val byLinkStatus = linkStatus.map(v => fr"status = $v")
@@ -63,8 +62,7 @@ object LinkPersistence {
       val fragment =
         fr"""
           SELECT id FROM links
-          WHERE
-        """ ++ byUserId ++ andOpt(byLinkStatus)
+        """ ++ whereAndOpt(byUserId, byLinkStatus)
 
       fragment.query[LinkId].to[List].transact(xa)
     }
