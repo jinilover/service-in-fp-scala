@@ -34,10 +34,10 @@ object LinkService {
                     id = None
                   , initiatorId = initiatorId
                   , targetId = targetId
-                  , status = LinkStatus.Pending
+                  , status = None
                   , creationDate = None
                   , confirmDate = None
-                  , uniqueKey = linkKey(initiatorId, targetId)
+                  , uniqueKey = None
                   )
         persistence.add(link)
           .redeemWith(

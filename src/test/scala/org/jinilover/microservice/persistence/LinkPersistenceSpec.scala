@@ -2,13 +2,19 @@ package org.jinilover.microservice.persistence
 
 import java.time.Clock
 
+import cats.instances.list._
+import cats.syntax.traverse._
+
 import cats.effect.IO
+
 import doobie.syntax.connectionio._
 import doobie.util.ExecutionContexts
 import doobie.util.update.Update0
+
 import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
-import org.specs2.specification.{BeforeEach}
+import org.specs2.specification.BeforeEach
+
 import org.jinilover.microservice.LinkStatus
 import org.jinilover.microservice.LinkTypes.{Link, SearchLinkCriteria, UserId, linkKey}
 import org.postgresql.util.PSQLException
@@ -37,21 +43,23 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
   override def before(): Unit =
     createSchema
 
-  val linkPersistence = LinkPersistence.default(xa, clock)
+  val linkDb = LinkPersistence.default(xa, clock)
 
   // sample user id
-  val List(mikasa, eren, armin, annie, reiner, bert, levi) =
-    List("mikasa", "eren", "armin", "annie", "reiner", "bert", "levi").map(UserId.apply)
+  val List(mikasa, eren, armin, annie, reiner, bert, levi, erwin) =
+    List("mikasa", "eren", "armin", "annie", "reiner", "bert", "levi", "erwin").map(UserId.apply)
+
+  // sample link
 
   lazy val sampleLink = {
     Link(
         id = None
       , initiatorId = mikasa
       , targetId = eren
-      , status = LinkStatus.Pending
+      , status = None
       , creationDate = None
       , confirmDate = None
-      , uniqueKey = linkKey(mikasa, eren)
+      , uniqueKey = None
     )
   }
 
@@ -63,40 +71,74 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
     )
 
 
-  override def is: SpecStructure =
+  override def is: SpecStructure = {
+    val reasonOfStep = "cannot run in parallel due to accessing the same table `links`"
+
     s2"""
       LinkPersistence
         should add 1 link and retrieve the link correctly $addLink
-        ${step("cannot run in parallel due to accessing the same table `links`")}
+        ${step{reasonOfStep}}
+        should add links and retrieve the links accordingly $addLinks
+        ${step(reasonOfStep)}
         should raise error of unique key violation $violateUniqueKey
     """
+  }
 
   def addLink = {
-    linkPersistence.add(sampleLink).unsafeRunSync()
+    linkDb.add(sampleLink).unsafeRunSync()
 
-    val linkIds = linkPersistence.getLinks(sampleCriteria).unsafeRunSync()
-    linkIds.size must be_==(1)
+    val linkIds = linkDb.getLinks(sampleCriteria).unsafeRunSync()
 
-    val linkFromDb = linkPersistence.get(linkIds(0)).unsafeRunSync()
-    val tupledResult = for {
-      v <- linkFromDb
-      Link(_, initiatorId, targetId, status, _, _, uniqueKey) = v
-    } yield (initiatorId, targetId, status, uniqueKey)
-    tupledResult must be_==(Some(mikasa, eren, LinkStatus.Pending, "eren_mikasa"))
+    val linkFromDb = linkDb.get(linkIds(0)).unsafeRunSync()
 
-    linkFromDb.flatMap(_.id).nonEmpty must beTrue
-    linkFromDb.flatMap(_.creationDate).nonEmpty must beTrue
-    linkFromDb.flatMap(_.confirmDate).isEmpty must beTrue
-
+    (linkIds.size must be_==(1)) and
+      (linkFromDb.flatMap(_.id) must beSome) and
+      (linkFromDb.map(_.initiatorId) must beSome(mikasa)) and
+      (linkFromDb.map(_.targetId) must beSome(eren)) and
+      (linkFromDb.flatMap(_.status) must beSome(LinkStatus.Pending)) and
+      (linkFromDb.flatMap(_.uniqueKey) must beSome("eren_mikasa")) and
+      (linkFromDb.flatMap(_.creationDate) must beSome) and
+      (linkFromDb.flatMap(_.confirmDate) must beNone)
   }
+
+  def addLinks = {
+    val mika_add_eren = sampleLink
+    val reiner_add_eren = sampleLink.copy(initiatorId = reiner, targetId = eren)
+    val bert_add_eren = sampleLink.copy(initiatorId = bert, targetId = eren)
+    val eren_add_armin = sampleLink.copy(initiatorId = eren, targetId = armin)
+    val eren_add_annie = sampleLink.copy(initiatorId = eren, targetId = annie)
+    val eren_add_levi = sampleLink.copy(initiatorId = eren, targetId = levi)
+    val eren_add_erwin = sampleLink.copy(initiatorId = eren, targetId = erwin)
+
+    List(
+      mika_add_eren, reiner_add_eren, bert_add_eren, eren_add_armin, eren_add_annie,
+      eren_add_levi, eren_add_erwin
+    ).traverse(linkDb.add)
+      .void
+      .unsafeRunSync()
+
+    val linkIds1 = linkDb.getLinks(sampleCriteria).unsafeRunSync()
+    linkIds1.size must be_==(7)
+  }
+
+  //TODO leave for search query
+//  val linkIds1 = linkDb.getLinks(sampleCriteria).unsafeRunSync()
+//  linkIds1.size must be_==(7)
+//
+//  val searchPending = sampleCriteria.copy(linkStatus = Some(LinkStatus.Pending))
+//
+//  val searchAccepted = sampleCriteria.copy(linkStatus = Some(LinkStatus.Accepted))
+//
+//  val searchUserIsInititator = sampleCriteria.copy()
+
 
   def violateUniqueKey = {
     val link = sampleLink
 
-    linkPersistence.add(link).unsafeRunSync()
+    linkDb.add(link).unsafeRunSync()
 
     // this time should violate unique key constraint
-    linkPersistence.add(link).unsafeRunSync() must
+    linkDb.add(link).unsafeRunSync() must
       throwAn[PSQLException].like { case e =>
         e.getMessage.toLowerCase must contain("""violates unique constraint "unique_unique_key"""")
       }

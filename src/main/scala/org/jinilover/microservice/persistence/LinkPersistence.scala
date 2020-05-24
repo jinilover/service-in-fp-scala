@@ -13,7 +13,7 @@ import doobie.syntax.connectionio._
 import doobie.syntax.string._
 import doobie.Fragments.andOpt
 
-import LinkTypes.{Link, LinkId, SearchLinkCriteria}
+import LinkTypes._
 import Doobie._
 
 trait LinkPersistence[F[_]] {
@@ -28,9 +28,11 @@ object LinkPersistence {
 
   class LinkDoobie(xa: Transactor[IO], clock: Clock) extends LinkPersistence[IO] {
     override def add(link: Link): IO[LinkId] = {
-      val Link(id, initiatorId, targetId, status, creationDateOpt, confirmDate, uniqueKey) = link
+      val Link(id, initiatorId, targetId, _, creationDateOpt, confirmDate, _) = link
       val linkId = id getOrElse LinkId(UUID.randomUUID.toString)
+      val status: LinkStatus = LinkStatus.Pending
       val creationDate = creationDateOpt getOrElse Instant.now(clock)
+      val uniqueKey = linkKey(initiatorId, targetId)
 
       sql"""
             INSERT INTO links (id, initiator_id, target_id, status, creation_date, confirm_date, unique_key)

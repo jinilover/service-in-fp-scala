@@ -24,10 +24,10 @@ object LinkTypes {
   case class Link(id: Option[LinkId]
                 , initiatorId: UserId
                 , targetId: UserId
-                , status: LinkStatus
+                , status: Option[LinkStatus]
                 , creationDate: Option[Instant]
                 , confirmDate: Option[Instant]
-                , uniqueKey: String
+                , uniqueKey: Option[String]
                )
 
   case class SearchLinkCriteria(userId: UserId
