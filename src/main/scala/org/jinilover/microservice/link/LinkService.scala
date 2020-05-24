@@ -45,7 +45,7 @@ object LinkService {
               if (err.getMessage.toLowerCase contains """violates unique constraint "unique_unique_key"""")
                 InputError(s"Link between ${initiatorId.unwrap} and ${targetId.unwrap} already exists")
               else
-                ThrowableError(err)
+                err
             },
             F.pure
           )
