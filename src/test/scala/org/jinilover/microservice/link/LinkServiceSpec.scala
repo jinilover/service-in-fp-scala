@@ -114,4 +114,22 @@ class LinkServiceSpec extends Specification {
     (service.removeLink(dummyLinkId).unsafeRunSync()
       must be_==(s"No need to remove non-exist linkid ${dummyLinkId.unwrap}"))
   }
+
+  def getLinks = {
+    class MockDb extends DummyPersistence {
+      var searchCriteria = SearchLinkCriteria(eren)
+      override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): IO[List[LinkId]] = {
+        IO(searchCriteria = srchCriteria) >>
+        IO(Nil)
+      }
+    }
+
+    val mockDb = new MockDb
+    val service = LinkService.default(mockDb, clock)
+
+    service.getLinks(mikasa, Some(LinkStatus.Pending), Some(true)).unsafeRunSync()
+    val expectedSearchCriteria = SearchLinkCriteria(mikasa, Some(LinkStatus.Pending), Some(true))
+
+    mockDb.searchCriteria must be_==(expectedSearchCriteria)
+  }
 }
