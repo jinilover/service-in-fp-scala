@@ -4,7 +4,7 @@ package microservice.link
 import cats.MonadError
 
 import org.jinilover.microservice.{InputError, LinkStatus}
-import org.jinilover.microservice.LinkTypes.{Link, LinkId, UserId}
+import org.jinilover.microservice.LinkTypes._
 
 trait LinkService[F[_]] {
   def addLink(initiatorId: UserId, targetId: UserId): F[LinkId]
@@ -34,9 +34,5 @@ object LinkService {
           )
         ???
       }
-//        ME.pure(LinkId(s"${initiatorId}_${targetId}"))
-
-    private def linkKey(userIds: UserId*): String =
-      userIds.map(_.unwrap).sorted.mkString("_")
   }
 }

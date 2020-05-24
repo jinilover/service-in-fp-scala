@@ -10,8 +10,8 @@ import cats.effect.IO
 import cats.syntax.flatMap._
 
 import doobie.Transactor
-import doobie.implicits._
-import doobie.implicits.javatime._
+import doobie.syntax.connectionio._
+import doobie.syntax.string._
 
 import LinkTypes.{Link, LinkId}
 import Doobie._
@@ -22,7 +22,7 @@ trait LinkPersistence[F[_]] {
 
 object LinkPersistence {
   def default(xa: Transactor[IO], clock: Clock): LinkPersistence[IO] =
-    ???
+    new LinkDoobie(xa, clock)
 
   class LinkDoobie(xa: Transactor[IO], clock: Clock) extends LinkPersistence[IO] {
     override def add(link: Link): IO[LinkId] = {

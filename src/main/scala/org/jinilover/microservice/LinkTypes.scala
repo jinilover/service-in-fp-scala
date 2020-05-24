@@ -1,12 +1,11 @@
-package org.jinilover.microservice
+package org.jinilover
+package microservice
 
 import java.time.Instant
 
 import io.circe.{Decoder, Encoder}
 
 import scalaz.{@@, Tag}
-
-import org.jinilover.Tagger
 
 object LinkTypes {
   type UserId = String @@ UserId.Marker
@@ -22,12 +21,16 @@ object LinkTypes {
     DA.map(Tag.apply[A, T])
 
   case class Link(id: Option[LinkId]
-                  , initiatorId: UserId
-                  , targetId: UserId
-                  , status: LinkStatus
-                  , creationDate: Option[Instant]
-                  , confirmDate: Option[Instant]
-                  , uniqueKey: String)
+                , initiatorId: UserId
+                , targetId: UserId
+                , status: LinkStatus
+                , creationDate: Option[Instant]
+                , confirmDate: Option[Instant]
+                , uniqueKey: String
+               )
+
+  def linkKey(userIds: UserId*): String =
+    userIds.map(_.unwrap).sorted.mkString("_")
 }
 
 sealed trait LinkStatus
