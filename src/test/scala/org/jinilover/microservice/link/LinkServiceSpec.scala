@@ -5,6 +5,7 @@ package link
 import java.time.{Clock, Instant}
 
 import cats.effect.IO
+import cats.syntax.flatMap._
 
 import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
@@ -34,7 +35,7 @@ class LinkServiceSpec extends Specification {
         LinkService
           should not allow user link to himself $userAddToHimself
           should handle unique key violation from db $handleUniqueKeyViolation
-
+          should pass correct arguments in acceptLink $acceptLink
     """
 
   def userAddToHimself = {
@@ -69,5 +70,29 @@ class LinkServiceSpec extends Specification {
       throwAn[Error].like { case InputError(msg) =>
         msg must be_==(s"Link between ${mikasa.unwrap} and ${eren.unwrap} already exists")
       }
+  }
+
+  def acceptLink = {
+    class MockDb extends DummyPersistence {
+      var linkId: LinkId = LinkId("")
+      var confirmDate: Instant = Instant.ofEpochMilli(0L)
+      var status: LinkStatus = LinkStatus.Pending
+
+      override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): IO[Unit] = {
+        IO(println("update called")) >>
+        IO(this.linkId = linkId) >>
+        IO(this.confirmDate = confirmDate) >>
+        IO(this.status = status)
+      }
+    }
+
+    val linkId = LinkId("value doesn't matter")
+    val mockDb = new MockDb
+    val service = LinkService.default(mockDb, clock)
+    service.acceptLink(linkId).unsafeRunSync
+
+    (mockDb.linkId must be_==(linkId)) and
+    (Math.abs(mockDb.confirmDate.getEpochSecond - clock.instant.getEpochSecond) must be ~(1L +/- 1L)) and
+    (mockDb.status must be_==(LinkStatus.Accepted))
   }
 }
