@@ -16,6 +16,9 @@ trait LinkService[F[_]] {
   def acceptLink(id: LinkId): F[Unit]
   def getLink(id: LinkId): F[Option[Link]]
   def removeLink(id: LinkId): F[String]
+  def getLinks(userId: UserId
+             , linkStatusOpt: Option[LinkStatus]
+             , isInitiatorOps: Option[Boolean]): F[List[LinkId]]
 }
 
 object LinkService {
@@ -62,5 +65,12 @@ object LinkService {
         case 0 => s"No need to remove non-exist linkid ${id.unwrap}"
         case _ => s"Linkid ${id.unwrap} removed successfully"
       }
+
+    override def getLinks(userId: UserId
+                        , linkStatusOpt: Option[LinkStatus]
+                        , isInitiatorOps: Option[Boolean]): F[List[LinkId]] =
+      persistence.getLinks(
+        SearchLinkCriteria(userId, linkStatusOpt, isInitiatorOps)
+      )
   }
 }

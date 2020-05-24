@@ -58,7 +58,8 @@ object Routes {
     def serviceRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
       case req@POST -> Root / "users" / userId / "links" =>
         req.decode[UserId] { targetId =>
-          linkService().addLink(UserId(userId), targetId)
+          linkService()
+            .addLink(UserId(userId), targetId)
             .redeemWith(
               { case InputError(msg) => BadRequest(msg) },
               linkId => Ok(linkId)
@@ -66,25 +67,22 @@ object Routes {
         }
 
       case GET -> Root / "users" / userId / "links"
-        :? OptionalStatusQueryParamMatcher(linkStatus)
-        :? OptionalIsUserInitiatorQueryParamMatcher(isInitiator) =>
-        val statusMsg = linkStatus.map(s => s"for $s").getOrElse("")
-        Ok(s"Get all links of $userId $statusMsg")
+        :? OptionalStatusQueryParamMatcher(linkStatusOps)
+        :? OptionalIsUserInitiatorQueryParamMatcher(isInitiatorOps) =>
+        linkService()
+          .getLinks(UserId(userId), linkStatusOps, isInitiatorOps)
+          .flatMap(linkIds => Ok(linkIds))
 
       case GET -> Root / "links" / linkId =>
-        linkService().getLink(LinkId(linkId))
-            .flatMap(optLink => Ok(optLink.toList))
+        linkService()
+          .getLink(LinkId(linkId))
+          .flatMap(optLink => Ok(optLink.toList))
 
-      case req@PUT -> Root / "links" =>
-        req.decode[String] { linkId =>
-          Ok(s"confirmed linkId = $linkId")
-        }
+      case PUT -> Root / "links" / linkId =>
+        linkService().acceptLink(LinkId(linkId)) >> Ok(s"LinkId $linkId accepted")
 
-      case req@DELETE -> Root / "links" =>
-        req.decode[String] { linkId =>
-          Ok(s"delete linkId = $linkId")
-        }
-
+      case DELETE -> Root / "links" / linkId =>
+        linkService().removeLink(LinkId(linkId)).flatMap(msg => Ok(msg))
     }
 
     override def routes: HttpApp[F] =
