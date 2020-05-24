@@ -30,15 +30,7 @@ object LinkService {
       if (initiatorId == targetId)
         F.raiseError(InputError("Both user ids are the same"))
       else {
-        val link = Link(
-                    id = None
-                  , initiatorId = initiatorId
-                  , targetId = targetId
-                  , status = None
-                  , creationDate = None
-                  , confirmDate = None
-                  , uniqueKey = None
-                  )
+        val link = Link(initiatorId = initiatorId , targetId = targetId)
         persistence.add(link)
           .redeemWith(
             err => F.raiseError {

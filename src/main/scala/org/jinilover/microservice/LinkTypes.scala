@@ -21,13 +21,13 @@ object LinkTypes {
   implicit def taggedTypeDecoder[A, T](implicit DA: Decoder[A]): Decoder[A @@ T] =
     DA.map(Tag.apply[A, T])
 
-  case class Link(id: Option[LinkId]
+  case class Link(id: Option[LinkId] = None
                 , initiatorId: UserId
                 , targetId: UserId
-                , status: Option[LinkStatus]
-                , creationDate: Option[Instant]
-                , confirmDate: Option[Instant]
-                , uniqueKey: Option[String]
+                , status: Option[LinkStatus] = None
+                , creationDate: Option[Instant] = None
+                , confirmDate: Option[Instant] = None
+                , uniqueKey: Option[String] = None
                )
 
   case class SearchLinkCriteria(userId: UserId

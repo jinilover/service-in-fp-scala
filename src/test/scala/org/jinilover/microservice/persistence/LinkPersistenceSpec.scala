@@ -49,19 +49,22 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
   val List(mikasa, eren, armin, annie, reiner, bert, levi, erwin) =
     List("mikasa", "eren", "armin", "annie", "reiner", "bert", "levi", "erwin").map(UserId.apply)
 
-  // sample link
-
-  lazy val sampleLink = {
-    Link(
-        id = None
-      , initiatorId = mikasa
-      , targetId = eren
-      , status = None
-      , creationDate = None
-      , confirmDate = None
-      , uniqueKey = None
-    )
-  }
+  // sample links
+  val List(mika_add_eren
+    , reiner_add_eren
+    , bert_add_eren
+    , eren_add_armin
+    , eren_add_annie
+    , eren_add_levi
+    , eren_add_erwin) =
+    List( (mikasa, eren)
+        , (reiner, eren)
+        , (bert, eren)
+        , (eren, armin)
+        , (eren, annie)
+        , (eren, levi)
+        , (eren, erwin) )
+        .map { case (initiator, target) => Link(initiatorId = initiator, targetId = target) }
 
   lazy val sampleCriteria =
     SearchLinkCriteria(
@@ -85,7 +88,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
   }
 
   def addLink = {
-    linkDb.add(sampleLink).unsafeRunSync()
+    linkDb.add(mika_add_eren).unsafeRunSync()
 
     val linkIds = linkDb.getLinks(sampleCriteria).unsafeRunSync()
 
@@ -102,14 +105,14 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
   }
 
   def addLinks = {
-    val mika_add_eren = sampleLink
-    val reiner_add_eren = sampleLink.copy(initiatorId = reiner, targetId = eren)
-    val bert_add_eren = sampleLink.copy(initiatorId = bert, targetId = eren)
-    val eren_add_armin = sampleLink.copy(initiatorId = eren, targetId = armin)
-    val eren_add_annie = sampleLink.copy(initiatorId = eren, targetId = annie)
-    val eren_add_levi = sampleLink.copy(initiatorId = eren, targetId = levi)
-    val eren_add_erwin = sampleLink.copy(initiatorId = eren, targetId = erwin)
-
+//    val mika_add_eren = sampleLink
+//    val reiner_add_eren = sampleLink.copy(initiatorId = reiner, targetId = eren)
+//    val bert_add_eren = sampleLink.copy(initiatorId = bert, targetId = eren)
+//    val eren_add_armin = sampleLink.copy(initiatorId = eren, targetId = armin)
+//    val eren_add_annie = sampleLink.copy(initiatorId = eren, targetId = annie)
+//    val eren_add_levi = sampleLink.copy(initiatorId = eren, targetId = levi)
+//    val eren_add_erwin = sampleLink.copy(initiatorId = eren, targetId = erwin)
+//
     List(
       mika_add_eren, reiner_add_eren, bert_add_eren, eren_add_armin, eren_add_annie,
       eren_add_levi, eren_add_erwin
@@ -133,7 +136,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
 
 
   def violateUniqueKey = {
-    val link = sampleLink
+    val link = mika_add_eren
 
     linkDb.add(link).unsafeRunSync()
 
