@@ -1,4 +1,6 @@
-package org.jinilover.microservice.persistence
+package org.jinilover
+package microservice
+package persistence
 
 import java.time.Clock
 
@@ -11,13 +13,13 @@ import doobie.syntax.connectionio._
 import doobie.util.ExecutionContexts
 import doobie.util.update.Update0
 
+import org.postgresql.util.PSQLException
+
 import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
 import org.specs2.specification.BeforeEach
 
-import org.jinilover.microservice.LinkStatus
-import org.jinilover.microservice.LinkTypes.{Link, SearchLinkCriteria, UserId, linkKey}
-import org.postgresql.util.PSQLException
+import LinkTypes.{Link, SearchLinkCriteria, UserId}
 
 class LinkPersistenceSpec extends Specification with BeforeEach {
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
