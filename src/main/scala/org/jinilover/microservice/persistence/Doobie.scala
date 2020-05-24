@@ -33,7 +33,7 @@ object Doobie {
     taggedMeta[String, UserId.Marker]
 
 
-  def taskTransactor(implicit cs: ContextShift[IO]): Transactor[IO] =
+  def transactor(implicit cs: ContextShift[IO]): Transactor[IO] =
     // TODO use config
     Transactor.fromDriverManager[IO](
       "org.postgresql.Driver"

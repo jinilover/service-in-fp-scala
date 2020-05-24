@@ -18,6 +18,7 @@ import Doobie._
 
 trait LinkPersistence[F[_]] {
   def add(link: Link): F[LinkId]
+  def get(id: LinkId): F[Option[Link]]
 }
 
 object LinkPersistence {
@@ -34,6 +35,14 @@ object LinkPersistence {
             INSERT INTO links (id, initiator_id, target_id, status, creation_date, confirm_date, unique_key)
             VALUES ($linkId, $initiatorId, $targetId, $status, $creationDate, $confirmDate, $uniqueKey)
          """.update.run.transact(xa) >> IO(linkId)
+    }
+
+    override def get(id: LinkId): IO[Option[Link]] = {
+      sql"""
+            SELECT id, initiator_id, target_id, status, creation_date, confirm_date, unique_key
+            FROM links
+            WHERE id = $id
+        """.query[Link].option.transact(xa)
     }
   }
 

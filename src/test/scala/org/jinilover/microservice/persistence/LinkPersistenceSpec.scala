@@ -16,7 +16,7 @@ import org.postgresql.util.PSQLException
 class LinkPersistenceSpec extends Specification with BeforeEach {
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
 
-  val xa = Doobie.taskTransactor
+  val xa = Doobie.transactor
   val clock = Clock.systemDefaultZone()
 
   def createSchema: Unit = {

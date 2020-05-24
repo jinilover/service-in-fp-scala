@@ -3,6 +3,7 @@ package microservice
 
 import java.time.Instant
 
+import io.circe.generic.semiauto.deriveEncoder
 import io.circe.{Decoder, Encoder}
 
 import scalaz.{@@, Tag}
@@ -28,6 +29,8 @@ object LinkTypes {
                 , confirmDate: Option[Instant]
                 , uniqueKey: String
                )
+
+  implicit val linkEncoder: Encoder[Link] = deriveEncoder
 
   def linkKey(userIds: UserId*): String =
     userIds.map(_.unwrap).sorted.mkString("_")

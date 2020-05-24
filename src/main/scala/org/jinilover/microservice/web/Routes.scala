@@ -4,6 +4,7 @@ package web
 
 import cats.syntax.semigroupk._
 import cats.syntax.monadError._
+import cats.syntax.flatMap._
 
 import cats.effect.Sync
 
@@ -15,7 +16,7 @@ import org.http4s.implicits._
 import org.http4s.{EntityEncoder, EntityDecoder, HttpApp, HttpRoutes, QueryParamDecoder}
 
 import org.jinilover.microservice.ops.OpsService
-import org.jinilover.microservice.{InputError, LinkStatus, ServerError}
+import org.jinilover.microservice.{InputError, LinkStatus, ThrowableError}
 import org.jinilover.microservice.LinkTypes._
 import org.jinilover.microservice.link.LinkService
 
@@ -60,8 +61,8 @@ object Routes {
           linkService.addLink(UserId(userId), targetId)
             .redeemWith(
               {
-                case InputError(err) => BadRequest(err)
-                case ServerError(err) => InternalServerError(err)
+                case InputError(msg) => BadRequest(msg)
+                case ThrowableError(err) => InternalServerError(err.getMessage)
               },
               linkId => Ok(linkId)
             )
@@ -74,7 +75,8 @@ object Routes {
         Ok(s"Get all links of $userId $statusMsg")
 
       case GET -> Root / "links" / linkId =>
-        Ok(s"Get details of $linkId")
+        linkService.getLink(LinkId(linkId))
+            .flatMap(optLink => Ok(optLink.toList))
 
       case req@PUT -> Root / "links" =>
         req.decode[String] { linkId =>
