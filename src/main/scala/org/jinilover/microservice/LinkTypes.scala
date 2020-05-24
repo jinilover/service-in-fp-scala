@@ -24,8 +24,8 @@ object LinkTypes {
   case class Link(id: Option[LinkId] = None
                 , initiatorId: UserId
                 , targetId: UserId
-                , status: Option[LinkStatus] = None
-                , creationDate: Option[Instant] = None
+                , status: LinkStatus
+                , creationDate: Instant
                 , confirmDate: Option[Instant] = None
                 , uniqueKey: Option[String] = None
                )

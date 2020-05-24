@@ -25,8 +25,8 @@ object Main extends IOApp {
       opsService = OpsService.default
       clock = Clock.systemDefaultZone()
       xa = Doobie.transactor
-      persistence = LinkPersistence.default(xa, clock)
-      linkService = LinkService.default[IO](persistence)
+      persistence = LinkPersistence.default(xa)
+      linkService = LinkService.default[IO](persistence, clock)
       routes = Routes.default[IO](opsService, linkService)
       exitCode <- WebServer.default(routes).start.compile.drain.as(ExitCode.Success)
     } yield exitCode

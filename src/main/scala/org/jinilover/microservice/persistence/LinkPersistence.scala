@@ -23,20 +23,18 @@ trait LinkPersistence[F[_]] {
 }
 
 object LinkPersistence {
-  def default(xa: Transactor[IO], clock: Clock): LinkPersistence[IO] =
-    new LinkDoobie(xa, clock)
+  def default(xa: Transactor[IO]): LinkPersistence[IO] =
+    new LinkDoobie(xa)
 
-  class LinkDoobie(xa: Transactor[IO], clock: Clock) extends LinkPersistence[IO] {
+  class LinkDoobie(xa: Transactor[IO]) extends LinkPersistence[IO] {
     override def add(link: Link): IO[LinkId] = {
-      val Link(id, initiatorId, targetId, _, creationDateOpt, confirmDate, _) = link
-      val linkId = id getOrElse LinkId(UUID.randomUUID.toString)
-      val status: LinkStatus = LinkStatus.Pending
-      val creationDate = creationDateOpt getOrElse Instant.now(clock)
+      val Link(_, initiatorId, targetId, status, creationDate, _, _) = link
+      val linkId = LinkId(UUID.randomUUID.toString)
       val uniqueKey = linkKey(initiatorId, targetId)
 
       sql"""
-            INSERT INTO links (id, initiator_id, target_id, status, creation_date, confirm_date, unique_key)
-            VALUES ($linkId, $initiatorId, $targetId, $status, $creationDate, $confirmDate, $uniqueKey)
+            INSERT INTO links (id, initiator_id, target_id, status, creation_date, unique_key)
+            VALUES ($linkId, $initiatorId, $targetId, $status, $creationDate, $uniqueKey)
          """.update.run.transact(xa) >> IO(linkId)
     }
 

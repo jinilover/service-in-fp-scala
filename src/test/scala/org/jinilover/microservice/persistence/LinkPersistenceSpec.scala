@@ -43,7 +43,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
   override def before(): Unit =
     createSchema
 
-  val linkDb = LinkPersistence.default(xa, clock)
+  val linkDb = LinkPersistence.default(xa)
 
   // sample user id
   val List(mikasa, eren, armin, annie, reiner, bert, levi, erwin) =
@@ -65,7 +65,12 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
         , (eren, annie)
         , (eren, levi)
         , (eren, erwin) )
-        .map { case (initiator, target) => Link(initiatorId = initiator, targetId = target) }
+        .map { case (initiator, target) =>
+          Link(initiatorId = initiator
+            , targetId = target
+            , status = LinkStatus.Pending
+            , creationDate = clock.instant)
+        }
 
   lazy val simpleSearch =
     SearchLinkCriteria(
@@ -99,9 +104,9 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
       (linkFromDb.flatMap(_.id) must beSome) and
       (linkFromDb.map(_.initiatorId) must beSome(mikasa)) and
       (linkFromDb.map(_.targetId) must beSome(eren)) and
-      (linkFromDb.flatMap(_.status) must beSome(LinkStatus.Pending)) and
+      (linkFromDb.map(_.status) must beSome(LinkStatus.Pending)) and
       (linkFromDb.flatMap(_.uniqueKey) must beSome("eren_mikasa")) and
-      (linkFromDb.flatMap(_.creationDate) must beSome) and
+      (linkFromDb.map(_.creationDate) must beSome(mika_add_eren.creationDate)) and
       (linkFromDb.flatMap(_.confirmDate) must beNone)
   }
 

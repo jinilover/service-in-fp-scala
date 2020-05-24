@@ -1,6 +1,8 @@
 package org.jinilover
 package microservice.link
 
+import java.time.Clock
+
 import cats.MonadError
 import cats.syntax.monadError._
 import cats.syntax.functor._
@@ -17,12 +19,12 @@ trait LinkService[F[_]] {
 
 object LinkService {
   def default[F[_]]
-    (persistence: LinkPersistence[F])
+    (persistence: LinkPersistence[F], clock: Clock)
     (implicit F: MonadError[F, Throwable]): LinkService[F] =
-    new LinkServiceImpl[F](persistence)
+    new LinkServiceImpl[F](persistence, clock)
 
   class LinkServiceImpl[F[_]]
-    (persistence: LinkPersistence[F])
+    (persistence: LinkPersistence[F], clock: Clock)
     (implicit F: MonadError[F, Throwable])
     extends LinkService[F] {
 
@@ -30,7 +32,12 @@ object LinkService {
       if (initiatorId == targetId)
         F.raiseError(InputError("Both user ids are the same"))
       else {
-        val link = Link(initiatorId = initiatorId , targetId = targetId)
+        val link = Link(
+          initiatorId = initiatorId
+        , targetId = targetId
+        , status = LinkStatus.Pending
+        , creationDate = clock.instant)
+
         persistence.add(link)
           .redeemWith(
             err => F.raiseError {
