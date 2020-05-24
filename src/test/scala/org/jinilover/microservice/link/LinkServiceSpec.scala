@@ -30,12 +30,15 @@ class DummyPersistence extends LinkPersistence[IO] {
 class LinkServiceSpec extends Specification {
   lazy val clock = Clock.systemDefaultZone()
 
+  val dummyLinkId = LinkId("value doesn't matter")
+
   override def is: SpecStructure =
     s2"""
         LinkService
           should not allow user link to himself $userAddToHimself
           should handle unique key violation from db $handleUniqueKeyViolation
           should pass correct arguments in acceptLink $acceptLink
+          should handle the value from db.remove properly $removeLink
     """
 
   def userAddToHimself = {
@@ -86,13 +89,29 @@ class LinkServiceSpec extends Specification {
       }
     }
 
-    val linkId = LinkId("value doesn't matter")
     val mockDb = new MockDb
     val service = LinkService.default(mockDb, clock)
-    service.acceptLink(linkId).unsafeRunSync
+    service.acceptLink(dummyLinkId).unsafeRunSync
 
-    (mockDb.linkId must be_==(linkId)) and
+    (mockDb.linkId must be_==(dummyLinkId)) and
     (Math.abs(mockDb.confirmDate.getEpochSecond - clock.instant.getEpochSecond) must be ~(1L +/- 1L)) and
     (mockDb.status must be_==(LinkStatus.Accepted))
+  }
+
+  def removeLink = {
+    class MockDb extends DummyPersistence {
+      var count = 1
+      override def remove(id: LinkId): IO[Int] = {
+        IO(count) <* IO(count -= 1)
+      }
+    }
+
+    val mockDb = new MockDb
+    val service = LinkService.default(mockDb, clock)
+
+    (service.removeLink(dummyLinkId).unsafeRunSync()
+      must be_==(s"Linkid ${dummyLinkId.unwrap} removed successfully")) and
+    (service.removeLink(dummyLinkId).unsafeRunSync()
+      must be_==(s"No need to remove non-exist linkid ${dummyLinkId.unwrap}"))
   }
 }
