@@ -51,10 +51,13 @@ object LinkPersistence {
     override def getLinks(srchCriteria: SearchLinkCriteria): IO[List[LinkId]] = {
       val SearchLinkCriteria(userId, linkStatus, isInitiator) = srchCriteria
 
+      lazy val userIsInitiator = fr"initiator_id = $userId"
+      lazy val userIsTarget = fr"target_id = $userId"
+
       val byUserId = isInitiator.map { bool =>
-        if (bool) fr"initiator_id = $userId" else fr"target_id = $userId"
+        if (bool) userIsInitiator else userIsTarget
       }.orElse(
-        Some(fr"(initiator_id = $userId OR target_id = $userId)")
+        Some(fr"(" ++ userIsInitiator ++ fr" OR " ++ userIsTarget ++ fr")")
       )
 
       val byLinkStatus = linkStatus.map(v => fr"status = $v")
