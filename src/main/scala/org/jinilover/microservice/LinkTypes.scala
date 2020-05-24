@@ -30,6 +30,11 @@ object LinkTypes {
                 , uniqueKey: String
                )
 
+  case class SearchLinkCriteria(userId: UserId
+                              , linkStatus: Option[LinkStatus]
+                              , isInitiator: Option[Boolean]
+                             )
+
   implicit val linkEncoder: Encoder[Link] = deriveEncoder
 
   def linkKey(userIds: UserId*): String =

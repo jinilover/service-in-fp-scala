@@ -26,11 +26,11 @@ trait Routes[F[_]] {
 
 object Routes {
   def default[F[_]: Sync](opsService: OpsService
-                        , linkService: LinkService[F]): Routes[F] =
-    new Http4sRoutes[F](opsService, linkService)
+                        , linkService: => LinkService[F]): Routes[F] =
+    new Http4sRoutes[F](opsService, () => linkService) //TODO remove after testing
 
   class Http4sRoutes[F[_]](opsService: OpsService
-                        , linkService: LinkService[F])(implicit F: Sync[F])
+                        , linkService: () => LinkService[F])(implicit F: Sync[F])
     extends Routes[F]
     with Http4sDsl[F] {
 
@@ -58,7 +58,7 @@ object Routes {
     def serviceRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
       case req@POST -> Root / "users" / userId / "links" =>
         req.decode[UserId] { targetId =>
-          linkService.addLink(UserId(userId), targetId)
+          linkService().addLink(UserId(userId), targetId)
             .redeemWith(
               { case InputError(msg) => BadRequest(msg) },
               linkId => Ok(linkId)
@@ -72,7 +72,7 @@ object Routes {
         Ok(s"Get all links of $userId $statusMsg")
 
       case GET -> Root / "links" / linkId =>
-        linkService.getLink(LinkId(linkId))
+        linkService().getLink(LinkId(linkId))
             .flatMap(optLink => Ok(optLink.toList))
 
       case req@PUT -> Root / "links" =>

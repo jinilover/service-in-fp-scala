@@ -8,9 +8,9 @@ import doobie.util.ExecutionContexts
 import doobie.util.update.Update0
 import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
-import org.specs2.specification.{BeforeAll, BeforeEach}
+import org.specs2.specification.{BeforeEach}
 import org.jinilover.microservice.LinkStatus
-import org.jinilover.microservice.LinkTypes.{Link, UserId, linkKey}
+import org.jinilover.microservice.LinkTypes.{Link, SearchLinkCriteria, UserId, linkKey}
 import org.postgresql.util.PSQLException
 
 class LinkPersistenceSpec extends Specification with BeforeEach {
@@ -39,37 +39,59 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
 
   val linkPersistence = LinkPersistence.default(xa, clock)
 
+  // sample user id
+  val List(mikasa, eren, armin, annie, reiner, bert, levi) =
+    List("mikasa", "eren", "armin", "annie", "reiner", "bert", "levi").map(UserId.apply)
+
+  lazy val sampleLink = {
+    Link(
+        id = None
+      , initiatorId = mikasa
+      , targetId = eren
+      , status = LinkStatus.Pending
+      , creationDate = None
+      , confirmDate = None
+      , uniqueKey = linkKey(mikasa, eren)
+    )
+  }
+
+  lazy val sampleCriteria =
+    SearchLinkCriteria(
+      userId = eren
+      , linkStatus = None
+      , isInitiator = None
+    )
+
+
   override def is: SpecStructure =
     s2"""
       LinkPersistence
-        should add links and retrieve the same links $addLink
+        should add 1 link and retrieve the link correctly $addLink
         ${step("cannot run in parallel due to accessing the same table `links`")}
         should raise error of unique key violation $violateUniqueKey
     """
 
   def addLink = {
-    val List(initiatorId, targetId) =
-      List("mikasa", "eren").map(UserId.apply)
+    linkPersistence.add(sampleLink).unsafeRunSync()
 
-    val link = dummyLink.copy(
-      initiatorId = initiatorId
-    , targetId = targetId
-    , uniqueKey = linkKey(initiatorId, targetId))
+    val linkIds = linkPersistence.getLinks(sampleCriteria).unsafeRunSync()
+    linkIds.size must be_==(1)
 
-    linkPersistence.add(link).unsafeRunSync()
+    val linkFromDb = linkPersistence.get(linkIds(0)).unsafeRunSync()
+    val tupledResult = for {
+      v <- linkFromDb
+      Link(_, initiatorId, targetId, status, _, _, uniqueKey) = v
+    } yield (initiatorId, targetId, status, uniqueKey)
+    tupledResult must be_==(Some(mikasa, eren, LinkStatus.Pending, "eren_mikasa"))
 
+    linkFromDb.flatMap(_.id).nonEmpty must beTrue
+    linkFromDb.flatMap(_.creationDate).nonEmpty must beTrue
+    linkFromDb.flatMap(_.confirmDate).isEmpty must beTrue
 
-    true must beTrue
   }
 
   def violateUniqueKey = {
-    val List(initiatorId, targetId) =
-      List("mikasa", "eren").map(UserId.apply)
-
-    val link = dummyLink.copy(
-      initiatorId = initiatorId
-      , targetId = targetId
-      , uniqueKey = linkKey(initiatorId, targetId))
+    val link = sampleLink
 
     linkPersistence.add(link).unsafeRunSync()
 
@@ -78,19 +100,6 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
       throwAn[PSQLException].like { case e =>
         e.getMessage.toLowerCase must contain("""violates unique constraint "unique_unique_key"""")
       }
-  }
-
-  lazy val dummyLink = {
-    val uid = UserId("")
-    Link(
-      id = None
-      , initiatorId = uid
-      , targetId = uid
-      , status = LinkStatus.Pending
-      , creationDate = None
-      , confirmDate = None
-      , uniqueKey = ""
-    )
   }
 
 }

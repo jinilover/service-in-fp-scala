@@ -6,19 +6,20 @@ import java.time.{Clock, Instant}
 import java.util.UUID
 
 import cats.effect.IO
-
 import cats.syntax.flatMap._
 
 import doobie.Transactor
 import doobie.syntax.connectionio._
 import doobie.syntax.string._
+import doobie.Fragments.andOpt
 
-import LinkTypes.{Link, LinkId}
+import LinkTypes.{Link, LinkId, SearchLinkCriteria}
 import Doobie._
 
 trait LinkPersistence[F[_]] {
   def add(link: Link): F[LinkId]
   def get(id: LinkId): F[Option[Link]]
+  def getLinks(srchCriteria: SearchLinkCriteria): F[List[LinkId]]
 }
 
 object LinkPersistence {
@@ -43,6 +44,27 @@ object LinkPersistence {
             FROM links
             WHERE id = $id
         """.query[Link].option.transact(xa)
+    }
+
+    override def getLinks(srchCriteria: SearchLinkCriteria): IO[List[LinkId]] = {
+      val SearchLinkCriteria(userId, linkStatus, isInitiator) = srchCriteria
+
+      val byUserId = isInitiator.map { bool =>
+        val srchColumn = if (bool) "initiator_id" else "target_id"
+        fr"$srchColumn = $userId"
+      }.getOrElse(
+        fr"(initiator_id = $userId OR target_id = $userId)"
+      )
+
+      val byLinkStatus = linkStatus.map(v => fr"status = $v")
+
+      val fragment =
+        fr"""
+          SELECT id FROM links
+          WHERE
+        """ ++ byUserId ++ andOpt(byLinkStatus)
+
+      fragment.query[LinkId].to[List].transact(xa)
     }
   }
 
