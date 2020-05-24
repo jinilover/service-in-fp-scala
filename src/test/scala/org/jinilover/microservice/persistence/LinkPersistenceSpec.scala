@@ -72,12 +72,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
             , creationDate = clock.instant)
         }
 
-  lazy val simpleSearch =
-    SearchLinkCriteria(
-      userId = eren
-      , linkStatus = None
-      , isInitiator = None
-    )
+  val simpleSearch = SearchLinkCriteria(userId = eren)
 
 
   override def is: SpecStructure = {
@@ -117,15 +112,19 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
   }
 
   def violateUniqueKey = {
-    val link = mika_add_eren
+    persistence.add(mika_add_eren).unsafeRunSync()
 
-    persistence.add(link).unsafeRunSync()
-
-    // this time should violate unique key constraint
-    persistence.add(link).unsafeRunSync() must
+    lazy val expectedException =
       throwAn[PSQLException].like { case e =>
         e.getMessage.toLowerCase must contain("""violates unique constraint "unique_unique_key"""")
       }
+
+    // it should violate unique key constraint in adding the same link
+    // or even the user ids swapped
+    val eren_add_mika = mika_add_eren.copy(initiatorId = eren, targetId = mikasa)
+
+    (persistence.add(eren_add_mika).unsafeRunSync() must expectedException) and
+      (persistence.add(mika_add_eren).unsafeRunSync() must expectedException)
   }
 
   def addLinks = {

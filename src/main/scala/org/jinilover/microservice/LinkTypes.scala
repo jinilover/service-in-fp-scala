@@ -31,8 +31,8 @@ object LinkTypes {
                )
 
   case class SearchLinkCriteria(userId: UserId
-                              , linkStatus: Option[LinkStatus]
-                              , isInitiator: Option[Boolean]
+                              , linkStatus: Option[LinkStatus] = None
+                              , isInitiator: Option[Boolean] = None
                              )
 
   implicit val linkEncoder: Encoder[Link] = deriveEncoder
