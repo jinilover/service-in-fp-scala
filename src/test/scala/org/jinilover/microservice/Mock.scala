@@ -100,11 +100,9 @@ object Mock {
       IO(searchCriteria = srchCriteria) >> IO(linkIds)
   }
 
-  class MockDbForGetLink(linkOpt: Option[Link]) extends DummyPersistence {
-    var linkId = dummyLinkId
-
+  class MockDbForGetLink(cache: Map[LinkId, Link]) extends DummyPersistence {
     override def get(id: LinkId): IO[Option[LinkTypes.Link]] =
-      IO(this.linkId = id) >> IO(linkOpt)
+      IO(cache.get(id))
   }
 
 

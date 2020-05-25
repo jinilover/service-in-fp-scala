@@ -79,12 +79,16 @@ class LinkServiceSpec extends Specification {
   }
 
   def getLink = {
-    val mockDb = new MockDbForGetLink(None)
+    val dbCache: Map[LinkId, Link] = Map(
+      dummyLinkId -> mika_add_eren
+    )
+    val mockDb = new MockDbForGetLink(dbCache)
     val service = LinkService.default(mockDb, clock)
 
-    val expectedLinkId = LinkId("id for testing getLink")
-    service.getLink(expectedLinkId).unsafeRunSync()
+    val existLink = service.getLink(dummyLinkId).unsafeRunSync()
+    val nonExistLInk = service.getLink(LinkId("non exist link")).unsafeRunSync()
 
-    mockDb.linkId must be_==(expectedLinkId)
+    (existLink must beSome(mika_add_eren)) and
+      (nonExistLInk must beNone)
   }
 }
