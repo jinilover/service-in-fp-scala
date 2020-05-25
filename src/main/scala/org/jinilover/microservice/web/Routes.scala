@@ -84,6 +84,9 @@ object Routes {
     }
 
     def authedRoutes: AuthedRoutes[UserId, F] = AuthedRoutes.of {
+      // a prototype of using `AuthMiddleware` to authenticate the request
+      // more things can be done from `LinkService` such as the `userId`
+      // should be part of the link
       case DELETE -> Root / "links" / linkId as userId =>
         linkService.removeLink(LinkId(linkId)).flatMap(msg => Ok(msg))
     }
