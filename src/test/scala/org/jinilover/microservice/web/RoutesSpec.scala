@@ -1,18 +1,24 @@
-package org.jinilover.microservice.web
+package org.jinilover
+package microservice
+package web
 
 import java.time.Clock
 
 import cats.effect.IO
+
 import fs2.Stream
+
 import io.circe.parser._
+
 import org.http4s._
 import org.http4s.implicits._
 import org.specs2.Specification
 import org.jinilover.microservice.ops.OpsService
 import org.jinilover.microservice.OpsTypes.VersionInfo
+
 import buildInfo.BuildInfo
-import org.jinilover.microservice.Mock.DummyPersistence
-import org.jinilover.microservice.link.LinkService
+import Mock._
+import link.LinkService
 
 class RoutesSpec extends Specification {
   lazy val clock = Clock.systemDefaultZone()
@@ -33,7 +39,7 @@ class RoutesSpec extends Specification {
   def welcomeMsgOk = {
     val mockDb = new DummyPersistence
     val linkService = LinkService.default(mockDb, clock)
-    val routes = Routes.default[IO](OpsService.default, linkService)
+    val routes = createRoutes(linkService)
 
     val expected = List(""""Welcome to REST servce in functional Scala!"""")
     val req = Request[IO](Method.GET, uri"/")
@@ -46,7 +52,7 @@ class RoutesSpec extends Specification {
   def versionInfoOk = {
     val mockDb = new DummyPersistence
     val linkService = LinkService.default(mockDb, clock)
-    val routes = Routes.default[IO](OpsService.default, linkService)
+    val routes = createRoutes(linkService)
 
     val expected = List(Right(VersionInfo(
         name = BuildInfo.name
@@ -71,7 +77,7 @@ class RoutesSpec extends Specification {
   def userAddToHimself = {
     val mockDb = new DummyPersistence
     val linkService = LinkService.default(mockDb, clock)
-    val routes = Routes.default[IO](OpsService.default, linkService)
+    val routes = createRoutes(linkService)
 
     val expected = List(""""Both user ids are the same"""")
     val req =
@@ -87,17 +93,28 @@ class RoutesSpec extends Specification {
   }
 
   def addLink = {
-    val expected = List(""""eren_mikasa"""")
+    val mockDb = new MockDbViolateUniqueKey(dummyLinkId)
+    val linkService = LinkService.default(mockDb, clock)
+    val routes = createRoutes(linkService)
+
     val req =
       Request[IO](
         Method.POST,
         uri"/users/eren/links",
-        body = createEntityBody("mikasa")
+        body = createEntityBody(""""mikasa"""")
       )
-//    val result = execReqForBody(req)
+    val okExpected = List(s""""${dummyLinkId.unwrap}"""")
+    val okRes = routes.routes.run(req).unsafeRunSync()
+    val okMsg = okRes.bodyAsText.compile.toList.unsafeRunSync()
 
+    val badExpected = List(s""""Link between eren and mikasa already exists"""")
+    val badRes = routes.routes.run(req).unsafeRunSync()
+    val badMsg = badRes.bodyAsText.compile.toList.unsafeRunSync()
 
-    true must beTrue
+    (okRes.status must be_==(Status.Ok)) and
+      (okMsg must be_==(okExpected)) and
+      (badRes.status must be_==(Status.BadRequest)) and
+      (badMsg must be_==(badExpected))
   }
 
 
@@ -130,4 +147,7 @@ class RoutesSpec extends Specification {
 
   private def streamToStrings(stream: Stream[IO, String]): List[String] =
     stream.compile.toList.unsafeRunSync()
+
+  private def createRoutes(linkService: LinkService[IO]): Routes[IO] =
+    Routes.default[IO](OpsService.default, linkService)
 }

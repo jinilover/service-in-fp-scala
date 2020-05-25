@@ -42,6 +42,8 @@ object Mock {
 
   val simpleSearch = SearchLinkCriteria(userId = eren)
 
+  val dummyLinkId = LinkId("dummy linkId")
+
   // mock implementation
   class DummyPersistence extends LinkPersistence[IO] {
     override def add(link: LinkTypes.Link): IO[LinkId] = ???

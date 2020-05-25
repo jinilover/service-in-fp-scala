@@ -37,10 +37,10 @@ class LinkServiceSpec extends Specification {
   }
 
   def handleUniqueKeyViolation = {
-    val sampleLinkId = LinkId("dummy linkId")
-    val service = LinkService.default(new MockDbViolateUniqueKey(sampleLinkId), clock)
+    val mockDb = new MockDbViolateUniqueKey(dummyLinkId)
+    val service = LinkService.default(mockDb, clock)
 
-    (service.addLink(mikasa, eren).unsafeRunSync() must be_==(sampleLinkId)) and
+    (service.addLink(mikasa, eren).unsafeRunSync() must be_==(dummyLinkId)) and
     (service.addLink(mikasa, eren).unsafeRunSync() must
       throwAn[Error].like { case InputError(msg) =>
         msg must be_==(s"Link between ${mikasa.unwrap} and ${eren.unwrap} already exists")
