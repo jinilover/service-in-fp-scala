@@ -154,7 +154,9 @@ class RoutesSpec extends Specification {
   def getLink = {
     val createReq: Uri => Request[IO] = Request[IO](Method.GET, _)
 
-    val dbCache: Map[LinkId, Link] = Map(LinkId("exist_linkid") -> mika_add_eren)
+    val existLinkId = LinkId("exist_linkid")
+    val existLink = mika_add_eren.copy(id = Some(existLinkId))
+    val dbCache: Map[LinkId, Link] = Map(existLinkId -> existLink)
     val routes = (createRoutes compose createLinkService)(new MockDbForGetLink(dbCache))
 
     type DecodeResult[A] = Either[Error, A]
@@ -174,7 +176,7 @@ class RoutesSpec extends Specification {
       }
       .unsafeRunSync()
 
-    (decodeResults(0) must be_==(Right(List(mika_add_eren)))) and
+    (decodeResults(0) must be_==(Right(List(existLink)))) and
       (decodeResults(1) must be_==(Right(Nil)))
   }
 
