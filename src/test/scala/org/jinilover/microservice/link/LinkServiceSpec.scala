@@ -24,6 +24,7 @@ class LinkServiceSpec extends Specification {
           should pass correct arguments in acceptLink $acceptLink
           should handle the value from db.remove properly $removeLink
           should form the required search criteria in getLinks $getLinks
+          should pass the linkId to db in getLink $getLink
     """
 
   def userAddToHimself = {
@@ -75,5 +76,15 @@ class LinkServiceSpec extends Specification {
     val expectedSearchCriteria = SearchLinkCriteria(mikasa, Some(LinkStatus.Pending), Some(true))
 
     mockDb.searchCriteria must be_==(expectedSearchCriteria)
+  }
+
+  def getLink = {
+    val mockDb = new MockDbForGetLink(None)
+    val service = LinkService.default(mockDb, clock)
+
+    val expectedLinkId = LinkId("id for testing getLink")
+    service.getLink(expectedLinkId).unsafeRunSync()
+
+    mockDb.linkId must be_==(expectedLinkId)
   }
 }

@@ -95,10 +95,16 @@ object Mock {
 
   class MockDbForGetLinks(linkIds: List[LinkId]) extends DummyPersistence {
     var searchCriteria = erenSearchCriteria
-    override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): IO[List[LinkId]] = {
-      IO(searchCriteria = srchCriteria) >>
-        IO(linkIds)
-    }
+
+    override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): IO[List[LinkId]] =
+      IO(searchCriteria = srchCriteria) >> IO(linkIds)
+  }
+
+  class MockDbForGetLink(linkOpt: Option[Link]) extends DummyPersistence {
+    var linkId = dummyLinkId
+
+    override def get(id: LinkId): IO[Option[LinkTypes.Link]] =
+      IO(this.linkId = id) >> IO(linkOpt)
   }
 
 
