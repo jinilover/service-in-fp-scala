@@ -4,6 +4,10 @@ package web
 
 import java.time.Clock
 
+import cats.instances.list._
+import cats.syntax.flatMap._
+import cats.syntax.traverse._
+
 import cats.effect.IO
 
 import fs2.Stream
@@ -13,9 +17,9 @@ import io.circe.parser._
 import org.http4s._
 import org.http4s.implicits._
 import org.specs2.Specification
+
 import org.jinilover.microservice.ops.OpsService
 import org.jinilover.microservice.OpsTypes.VersionInfo
-
 import buildInfo.BuildInfo
 import Mock._
 import link.LinkService
@@ -28,8 +32,9 @@ class RoutesSpec extends Specification {
       Routes must
         Get / $welcomeMsgOk
         Get /version_info $versionInfoOk
-        POST /users/userId/links when user attempts to add himself $userAddToHimself
-        POST /users/userId/links when user adds the same link twice $addLink
+        POST /users/userId/links return bad request when user attempts to add himself $userAddToHimself
+        POST /users/userId/links return bad request when user adds the same link twice $addLink
+        GET /users/userId/links extract the required query parameter $getLinksWithQueryParams
     """
 //  TODO put back afterwards
 
@@ -114,6 +119,34 @@ class RoutesSpec extends Specification {
       (okMsg must be_==(okExpected)) and
       (badRes.status must be_==(Status.BadRequest)) and
       (badMsg must be_==(badExpected))
+  }
+
+  def getLinksWithQueryParams = {
+    val createReq: Uri => Request[IO] = Request[IO](Method.GET, _)
+
+    val mockDb = new MockDbForGetLinks(Nil)
+    val linkService = LinkService.default(mockDb, clock)
+    val routes = createRoutes(linkService)
+
+    val reqs = List(
+      createReq(uri"/users/eren/links")
+    , createReq(uri"/users/eren/links?status=Pending")
+    , createReq(uri"/users/eren/links?status=Accepted")
+    , createReq(uri"/users/eren/links?is_initiator=true")
+    , createReq(uri"/users/eren/links?is_initiator=false")
+    , createReq(uri"/users/eren/links?is_initiator=false&status=Accepted")
+    , createReq(uri"/users/eren/links?status=Pending&is_initiator=true")
+    )
+
+    val srchCriterias =
+      reqs.traverse { req =>
+        routes.routes.run(req) >> IO(mockDb.searchCriteria)
+      }.unsafeRunSync()
+
+    srchCriterias(0) must be_==(erenSearchCriteria)
+
+
+
   }
 
 

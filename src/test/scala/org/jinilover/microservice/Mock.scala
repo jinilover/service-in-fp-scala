@@ -40,7 +40,7 @@ object Mock {
           , creationDate = clock.instant)
       }
 
-  val simpleSearch = SearchLinkCriteria(userId = eren)
+  val erenSearchCriteria = SearchLinkCriteria(userId = eren)
 
   val dummyLinkId = LinkId("dummy linkId")
 
@@ -94,7 +94,7 @@ object Mock {
   }
 
   class MockDbForGetLinks(linkIds: List[LinkId]) extends DummyPersistence {
-    var searchCriteria = SearchLinkCriteria(eren)
+    var searchCriteria = erenSearchCriteria
     override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): IO[List[LinkId]] = {
       IO(searchCriteria = srchCriteria) >>
         IO(linkIds)

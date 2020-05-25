@@ -69,7 +69,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
   def addLink = {
     val linkId = persistence.add(mika_add_eren).unsafeRunSync()
 
-    val linkIdsFromDb = persistence.getLinks(simpleSearch).unsafeRunSync()
+    val linkIdsFromDb = persistence.getLinks(erenSearchCriteria).unsafeRunSync()
 
     val linkFromDb = persistence.get(linkId).unsafeRunSync()
 
@@ -108,10 +108,10 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
       .unsafeRunSync()
 
     val srchCriterias = List(
-      simpleSearch
-    , simpleSearch.copy(linkStatus = Some(LinkStatus.Accepted)) // search `Accepted` only
-    , simpleSearch.copy(isInitiator = Some(true)) // the user is inititator
-    , simpleSearch.copy(isInitiator = Some(false)) // the user target
+      erenSearchCriteria
+    , erenSearchCriteria.copy(linkStatus = Some(LinkStatus.Accepted)) // search `Accepted` only
+    , erenSearchCriteria.copy(isInitiator = Some(true)) // the user is inititator
+    , erenSearchCriteria.copy(isInitiator = Some(false)) // the user target
     )
 
     // get the # of records searched for each query
@@ -130,7 +130,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
     val confirmDate = clock.instant()
     persistence.update(linkId, confirmDate, LinkStatus.Accepted).unsafeRunSync()
 
-    val linkIdsFromDb = persistence.getLinks(simpleSearch).unsafeRunSync()
+    val linkIdsFromDb = persistence.getLinks(erenSearchCriteria).unsafeRunSync()
 
     val linkFromDb = persistence.get(linkIdsFromDb(0)).unsafeRunSync()
 
@@ -160,15 +160,15 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
       .unsafeRunSync()
 
     val srchCriterias = List(
-        simpleSearch
-      , simpleSearch.copy(linkStatus = Some(LinkStatus.Accepted)) // search `Accepted` only
-      , simpleSearch.copy(linkStatus = Some(LinkStatus.Pending)) // search `Pending` only
-      , simpleSearch.copy(isInitiator = Some(true)) // the user is initiator only
-      , simpleSearch.copy(isInitiator = Some(false)) // the user target only
-      , simpleSearch.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Accepted))
-      , simpleSearch.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Pending))
-      , simpleSearch.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Accepted))
-      , simpleSearch.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Pending))
+        erenSearchCriteria
+      , erenSearchCriteria.copy(linkStatus = Some(LinkStatus.Accepted)) // search `Accepted` only
+      , erenSearchCriteria.copy(linkStatus = Some(LinkStatus.Pending)) // search `Pending` only
+      , erenSearchCriteria.copy(isInitiator = Some(true)) // the user is initiator only
+      , erenSearchCriteria.copy(isInitiator = Some(false)) // the user target only
+      , erenSearchCriteria.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Accepted))
+      , erenSearchCriteria.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Pending))
+      , erenSearchCriteria.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Accepted))
+      , erenSearchCriteria.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Pending))
     )
 
     // get the # of records searched for each query
@@ -186,7 +186,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
     val count1 = persistence.remove(linkId).unsafeRunSync() // 1
     val count2 = persistence.remove(linkId).unsafeRunSync() // 0
 
-    val linkIdsFromDb = persistence.getLinks(simpleSearch).unsafeRunSync()
+    val linkIdsFromDb = persistence.getLinks(erenSearchCriteria).unsafeRunSync()
 
     (count1 must be_==(1)) and
       (count2 must be_==(0)) and
