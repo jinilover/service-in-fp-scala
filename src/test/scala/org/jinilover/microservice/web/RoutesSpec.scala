@@ -43,10 +43,11 @@ class RoutesSpec extends Specification {
 
     val expected = List(""""Welcome to REST servce in functional Scala!"""")
     val req = Request[IO](Method.GET, uri"/")
-    val result = routes.routes.run(req).unsafeRunSync()
-      .bodyAsText.compile.toList.unsafeRunSync()
+    val res = routes.routes.run(req).unsafeRunSync()
+    val bodyText = getBodyText(res)
 
-    result must be_==(expected)
+    (res.status must be_==(Status.Ok)) and
+      (bodyText must be_==(expected))
   }
 
   def versionInfoOk = {
@@ -65,13 +66,11 @@ class RoutesSpec extends Specification {
       , gitCurrentBranch = BuildInfo.gitCurrentBranch
       )))
     val req = Request[IO](Method.GET, uri"/version_info")
-    val strings = routes.routes.run(req).unsafeRunSync()
-      .bodyAsText.compile.toList.unsafeRunSync()
-    val result = strings.map { s =>
-      parse(s).flatMap(_.as[VersionInfo])
-    }
+    val res = routes.routes.run(req).unsafeRunSync()
+    val bodyText = getBodyText(res)
 
-    result must be_==(expected)
+    (res.status must be_==(Status.Ok)) and
+      (bodyText.map{s => parse(s).flatMap(_.as[VersionInfo])} must be_==(expected))
   }
 
   def userAddToHimself = {
@@ -86,10 +85,10 @@ class RoutesSpec extends Specification {
         body = createEntityBody(""""eren"""")
       )
     val res = routes.routes.run(req).unsafeRunSync()
-    val msg = res.bodyAsText.compile.toList.unsafeRunSync()
+    val bodyText = getBodyText(res)
 
     (res.status must be_==(Status.BadRequest)) and
-      (msg must be_==(expected))
+      (bodyText must be_==(expected))
   }
 
   def addLink = {
@@ -105,11 +104,11 @@ class RoutesSpec extends Specification {
       )
     val okExpected = List(s""""${dummyLinkId.unwrap}"""")
     val okRes = routes.routes.run(req).unsafeRunSync()
-    val okMsg = okRes.bodyAsText.compile.toList.unsafeRunSync()
+    val okMsg = getBodyText(okRes)
 
     val badExpected = List(s""""Link between eren and mikasa already exists"""")
     val badRes = routes.routes.run(req).unsafeRunSync()
-    val badMsg = badRes.bodyAsText.compile.toList.unsafeRunSync()
+    val badMsg = getBodyText(badRes)
 
     (okRes.status must be_==(Status.Ok)) and
       (okMsg must be_==(okExpected)) and
@@ -147,6 +146,9 @@ class RoutesSpec extends Specification {
 
   private def streamToStrings(stream: Stream[IO, String]): List[String] =
     stream.compile.toList.unsafeRunSync()
+
+  private def getBodyText(res: Response[IO]): List[String] =
+    res.bodyAsText.compile.toList.unsafeRunSync()
 
   private def createRoutes(linkService: LinkService[IO]): Routes[IO] =
     Routes.default[IO](OpsService.default, linkService)
