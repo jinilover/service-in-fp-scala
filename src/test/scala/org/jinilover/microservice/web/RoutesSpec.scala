@@ -42,11 +42,8 @@ class RoutesSpec extends Specification {
         POST  /users/userId/links return bad request when user adds the same link twice $addLink
         GET   /users/userId/links extract the required query parameter $getLinksWithQueryParams
         GET   /links/linkId for existing or non-exist link $getLink
+        PUT   /links/linkId for accepting a link $acceptLink
     """
-//  TODO put back afterwards
-
-  //  GET /users/userId/links query parameters successfully $getUserIdLinksWithQueryParams
-  //  POST /users/userId/links successfully $addLink
 
   def welcomeMsgOk = {
     val routes = (createRoutes compose createLinkService)(new DummyPersistence)
@@ -178,6 +175,16 @@ class RoutesSpec extends Specification {
 
     (decodeResults(0) must be_==(Right(List(existLink)))) and
       (decodeResults(1) must be_==(Right(Nil)))
+  }
+
+  def acceptLink = {
+    val mockService = new MockServiceForAcceptLink
+    val routes = createRoutes(mockService)
+
+    val req = Request[IO](Method.PUT, uri"/links/linkid_be_accepted")
+    routes.routes.run(req).unsafeRunSync()
+
+    mockService.linkId.unwrap must be_==("linkid_be_accepted")
   }
 
   private def createEntityBody(s: String): EntityBody[IO] =

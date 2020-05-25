@@ -6,9 +6,9 @@ import cats.effect.IO
 
 import cats.syntax.flatMap._
 
-import org.jinilover.microservice.LinkTypes.{Link, LinkStatus, LinkId, SearchLinkCriteria, UserId, linkKey}
-
-import org.jinilover.microservice.persistence.LinkPersistence
+import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId, linkKey}
+import link.LinkService
+import persistence.LinkPersistence
 
 object Mock {
   val clock = Clock.systemDefaultZone()
@@ -44,7 +44,7 @@ object Mock {
 
   val dummyLinkId = LinkId("dummy_linkId")
 
-  // mock implementation
+  // mock persistence
   class DummyPersistence extends LinkPersistence[IO] {
     override def add(link: LinkTypes.Link): IO[LinkId] = ???
 
@@ -106,7 +106,25 @@ object Mock {
   }
 
 
+  // mock service
+  class DummyService extends LinkService[IO] {
+    override def addLink(initiatorId: UserId, targetId: UserId): IO[LinkId] = ???
 
+    override def acceptLink(id: LinkId): IO[Unit] = ???
+
+    override def getLink(id: LinkId): IO[Option[Link]] = ???
+
+    override def removeLink(id: LinkId): IO[String] = ???
+
+    override def getLinks(userId: UserId, linkStatusOpt: Option[LinkStatus], isInitiatorOps: Option[Boolean]): IO[List[LinkId]] = ???
+  }
+
+  class MockServiceForAcceptLink extends DummyService {
+    var linkId = LinkId("")
+
+    override def acceptLink(id: LinkId): IO[Unit] =
+      IO(this.linkId = id)
+  }
 
 
 }
