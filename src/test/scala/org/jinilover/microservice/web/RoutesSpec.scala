@@ -143,10 +143,13 @@ class RoutesSpec extends Specification {
         routes.routes.run(req) >> IO(mockDb.searchCriteria)
       }.unsafeRunSync()
 
-    srchCriterias(0) must be_==(erenSearchCriteria)
-
-
-
+    (srchCriterias(0) must be_==(erenSearchCriteria)) and
+      (srchCriterias(1) must be_==(erenSearchCriteria.copy(linkStatus = Some(LinkStatus.Pending)))) and
+      (srchCriterias(2) must be_==(erenSearchCriteria.copy(linkStatus = Some(LinkStatus.Accepted)))) and
+      (srchCriterias(3) must be_==(erenSearchCriteria.copy(isInitiator = Some(true)))) and
+      (srchCriterias(4) must be_==(erenSearchCriteria.copy(isInitiator = Some(false)))) and
+      (srchCriterias(5) must be_==(erenSearchCriteria.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Accepted)))) and
+      (srchCriterias(6) must be_==(erenSearchCriteria.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Pending))))
   }
 
 
