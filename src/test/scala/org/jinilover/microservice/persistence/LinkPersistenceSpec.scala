@@ -19,7 +19,7 @@ import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
 import org.specs2.specification.BeforeEach
 
-import MockData._
+import Mock._
 
 class LinkPersistenceSpec extends Specification with BeforeEach {
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)

@@ -13,7 +13,7 @@ import org.specs2.specification.core.SpecStructure
 import LinkTypes._
 import persistence.LinkPersistence
 
-import MockData._
+import Mock._
 
 class DummyPersistence extends LinkPersistence[IO] {
   override def add(link: LinkTypes.Link): IO[LinkId] = ???
@@ -116,15 +116,15 @@ class LinkServiceSpec extends Specification {
   }
 
   def getLinks = {
-    class MockDb extends DummyPersistence {
+    class MockDb(linkIds: List[LinkId]) extends DummyPersistence {
       var searchCriteria = SearchLinkCriteria(eren)
       override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): IO[List[LinkId]] = {
         IO(searchCriteria = srchCriteria) >>
-        IO(Nil)
+        IO(linkIds)
       }
     }
 
-    val mockDb = new MockDb
+    val mockDb = new MockDb(Nil)
     val service = LinkService.default(mockDb, clock)
 
     service.getLinks(mikasa, Some(LinkStatus.Pending), Some(true)).unsafeRunSync()

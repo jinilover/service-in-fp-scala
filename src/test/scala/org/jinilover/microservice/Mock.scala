@@ -4,7 +4,7 @@ import java.time.Clock
 
 import org.jinilover.microservice.LinkTypes.{Link, SearchLinkCriteria, UserId}
 
-object MockData {
+object Mock {
   val clock = Clock.systemDefaultZone()
 
   // sample user id
