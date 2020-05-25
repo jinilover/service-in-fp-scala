@@ -2,21 +2,23 @@ package org.jinilover
 package microservice
 package web
 
+import cats.data.{Kleisli, OptionT}
 import cats.syntax.semigroupk._
 import cats.syntax.monadError._
 import cats.syntax.flatMap._
 
-import cats.effect.Sync
+import cats.effect.{Sync}
 
 import io.circe.{Decoder, Encoder}
 
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
-import org.http4s.{EntityEncoder, EntityDecoder, HttpApp, HttpRoutes, QueryParamDecoder}
+import org.http4s._
+import org.http4s.server.AuthMiddleware
 
 import ops.OpsService
-import LinkTypes.{UserId, LinkId, taggedTypeEncoder, taggedTypeDecoder, LinkStatus, toLinkStatus}
+import LinkTypes.{LinkId, LinkStatus, UserId, taggedTypeDecoder, taggedTypeEncoder, toLinkStatus}
 import link.LinkService
 
 trait Routes[F[_]] {
@@ -79,13 +81,33 @@ object Routes {
 
       case PUT -> Root / "links" / linkId =>
         linkService().acceptLink(LinkId(linkId)) >> Ok(s"LinkId $linkId accepted")
+    }
 
-      case DELETE -> Root / "links" / linkId =>
+    def authedRoutes: AuthedRoutes[UserId, F] = AuthedRoutes.of {
+      case DELETE -> Root / "links" / linkId as userId =>
+        F.pure(println(s"userId = $userId"))
         linkService().removeLink(LinkId(linkId)).flatMap(msg => Ok(msg))
     }
 
+    val authUser: Kleisli[OptionT[F, *], Request[F], UserId] =
+      Kleisli { req =>
+        val userIdOpt =
+          req.headers.get("Authorization".ci)
+            .flatMap { header =>
+              val v = header.value
+              val bearer = "Bearer "
+              if (v.startsWith(bearer) && v.trim != "Bearer")
+                Some(UserId(v.replaceFirst(bearer, "").trim))
+              else
+                None
+            }
+        OptionT(F.pure(userIdOpt))
+      }
+
+    val authMidleware: AuthMiddleware[F, UserId] = AuthMiddleware(authUser)
+
     override def routes: HttpApp[F] =
-      (opsRoutes <+> serviceRoutes).orNotFound
+      (opsRoutes <+> serviceRoutes <+> authMidleware(authedRoutes)).orNotFound
   }
 
 }
