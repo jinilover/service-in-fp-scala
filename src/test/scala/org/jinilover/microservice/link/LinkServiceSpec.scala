@@ -23,6 +23,7 @@ class LinkServiceSpec extends Specification {
           should handle unique key violation from db $handleUniqueKeyViolation
           should pass correct arguments in acceptLink $acceptLink
           should handle the value from db.remove properly $removeLink
+          should form the required search criteria in getLinks $getLinks
     """
 
   def userAddToHimself = {

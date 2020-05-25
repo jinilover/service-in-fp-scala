@@ -86,6 +86,7 @@ object Mock {
   class MockDbForRemoveLink extends DummyPersistence {
     var count = 1
     override def remove(id: LinkId): IO[Int] = {
+      // note that `count = 1` is returned even though it decremented by 1 in the end
       IO(count) <* IO(count -= 1)
     }
   }
