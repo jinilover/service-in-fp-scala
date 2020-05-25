@@ -1,8 +1,14 @@
 package org.jinilover.microservice
 
-import java.time.Clock
+import java.time.{Clock, Instant}
 
-import org.jinilover.microservice.LinkTypes.{Link, SearchLinkCriteria, UserId}
+import cats.effect.IO
+
+import cats.syntax.flatMap._
+
+import org.jinilover.microservice.LinkTypes.{Link, LinkId, SearchLinkCriteria, UserId, linkKey}
+
+import org.jinilover.microservice.persistence.LinkPersistence
 
 object Mock {
   val clock = Clock.systemDefaultZone()
@@ -35,4 +41,65 @@ object Mock {
       }
 
   val simpleSearch = SearchLinkCriteria(userId = eren)
+
+  // mock implementation
+  class DummyPersistence extends LinkPersistence[IO] {
+    override def add(link: LinkTypes.Link): IO[LinkId] = ???
+
+    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): IO[Unit] = ???
+
+    override def get(id: LinkId): IO[Option[LinkTypes.Link]] = ???
+
+    override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): IO[List[LinkId]] = ???
+
+    override def remove(id: LinkId): IO[Int] = ???
+  }
+
+  // To test how its user handle unique key violation
+  class MockDbViolateUniqueKey extends DummyPersistence {
+    var linkSet = Set.empty[String]
+
+    override def add(link: LinkTypes.Link): IO[LinkId] = {
+      val uniqueKey = linkKey(link.initiatorId, link.targetId)
+      if (linkSet contains uniqueKey)
+        IO.raiseError(new RuntimeException("""violates unique constraint "unique_unique_key""""))
+      else {
+        linkSet += uniqueKey
+        IO.pure(LinkId("dummy linkId"))
+      }
+    }
+  }
+
+  class MockDbForUpdateLink extends DummyPersistence {
+    var linkId: LinkId = LinkId("")
+    var confirmDate: Instant = Instant.ofEpochMilli(0L)
+    var status: LinkStatus = LinkStatus.Pending
+
+    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): IO[Unit] = {
+      IO(println("update called")) >>
+        IO(this.linkId = linkId) >>
+        IO(this.confirmDate = confirmDate) >>
+        IO(this.status = status)
+    }
+  }
+
+  class MockDbForRemoveLink extends DummyPersistence {
+    var count = 1
+    override def remove(id: LinkId): IO[Int] = {
+      IO(count) <* IO(count -= 1)
+    }
+  }
+
+  class MockDbForGetLinks(linkIds: List[LinkId]) extends DummyPersistence {
+    var searchCriteria = SearchLinkCriteria(eren)
+    override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): IO[List[LinkId]] = {
+      IO(searchCriteria = srchCriteria) >>
+        IO(linkIds)
+    }
+  }
+
+
+
+
+
 }

@@ -2,30 +2,14 @@ package org.jinilover
 package microservice
 package link
 
-import java.time.{Clock, Instant}
-
-import cats.effect.IO
-import cats.syntax.flatMap._
+import java.time.{Clock}
 
 import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
 
 import LinkTypes._
-import persistence.LinkPersistence
 
 import Mock._
-
-class DummyPersistence extends LinkPersistence[IO] {
-  override def add(link: LinkTypes.Link): IO[LinkId] = ???
-
-  override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): IO[Unit] = ???
-
-  override def get(id: LinkId): IO[Option[LinkTypes.Link]] = ???
-
-  override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): IO[List[LinkId]] = ???
-
-  override def remove(id: LinkId): IO[Int] = ???
-}
 
 class LinkServiceSpec extends Specification {
   lazy val clock = Clock.systemDefaultZone()
@@ -52,21 +36,7 @@ class LinkServiceSpec extends Specification {
   }
 
   def handleUniqueKeyViolation = {
-    class MockDb extends DummyPersistence {
-      var linkSet = Set.empty[String]
-
-      override def add(link: LinkTypes.Link): IO[LinkId] = {
-        val uniqueKey = linkKey(link.initiatorId, link.targetId)
-        if (linkSet contains uniqueKey)
-          IO.raiseError(new RuntimeException("""violates unique constraint "unique_unique_key""""))
-        else {
-          linkSet += uniqueKey
-          IO.pure(LinkId("dummy linkId"))
-        }
-      }
-    }
-
-    val service = LinkService.default(new MockDb, clock)
+    val service = LinkService.default(new MockDbViolateUniqueKey, clock)
     service.addLink(mikasa, eren).unsafeRunSync()
 
     service.addLink(mikasa, eren).unsafeRunSync() must
@@ -76,20 +46,7 @@ class LinkServiceSpec extends Specification {
   }
 
   def acceptLink = {
-    class MockDb extends DummyPersistence {
-      var linkId: LinkId = LinkId("")
-      var confirmDate: Instant = Instant.ofEpochMilli(0L)
-      var status: LinkStatus = LinkStatus.Pending
-
-      override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): IO[Unit] = {
-        IO(println("update called")) >>
-        IO(this.linkId = linkId) >>
-        IO(this.confirmDate = confirmDate) >>
-        IO(this.status = status)
-      }
-    }
-
-    val mockDb = new MockDb
+    val mockDb = new MockDbForUpdateLink
     val service = LinkService.default(mockDb, clock)
     service.acceptLink(dummyLinkId).unsafeRunSync
 
@@ -99,14 +56,7 @@ class LinkServiceSpec extends Specification {
   }
 
   def removeLink = {
-    class MockDb extends DummyPersistence {
-      var count = 1
-      override def remove(id: LinkId): IO[Int] = {
-        IO(count) <* IO(count -= 1)
-      }
-    }
-
-    val mockDb = new MockDb
+    val mockDb = new MockDbForRemoveLink
     val service = LinkService.default(mockDb, clock)
 
     (service.removeLink(dummyLinkId).unsafeRunSync()
@@ -116,15 +66,7 @@ class LinkServiceSpec extends Specification {
   }
 
   def getLinks = {
-    class MockDb(linkIds: List[LinkId]) extends DummyPersistence {
-      var searchCriteria = SearchLinkCriteria(eren)
-      override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): IO[List[LinkId]] = {
-        IO(searchCriteria = srchCriteria) >>
-        IO(linkIds)
-      }
-    }
-
-    val mockDb = new MockDb(Nil)
+    val mockDb = new MockDbForGetLinks(Nil)
     val service = LinkService.default(mockDb, clock)
 
     service.getLinks(mikasa, Some(LinkStatus.Pending), Some(true)).unsafeRunSync()
