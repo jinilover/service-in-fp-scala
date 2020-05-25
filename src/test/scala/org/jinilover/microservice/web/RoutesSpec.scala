@@ -41,7 +41,7 @@ class RoutesSpec extends Specification {
         POST  /users/userId/links return bad request when user attempts to add himself $userAddToHimself
         POST  /users/userId/links return bad request when user adds the same link twice $addLink
         GET   /users/userId/links extract the required query parameter $getLinksWithQueryParams
-        GET   /links/linkId for existing link $getExistingLink
+        GET   /links/linkId for existing or non-exist link $getLink
     """
 //  TODO put back afterwards
 
@@ -151,29 +151,31 @@ class RoutesSpec extends Specification {
       (srchCriterias(6) must be_==(erenSearchCriteria.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Pending))))
   }
 
-  def getExistingLink = {
+  def getLink = {
+    val createReq: Uri => Request[IO] = Request[IO](Method.GET, _)
+
     val dbCache: Map[LinkId, Link] = Map(LinkId("exist_linkid") -> mika_add_eren)
     val routes = (createRoutes compose createLinkService)(new MockDbForGetLink(dbCache))
-    val reqs =
-      List(
-        Request[IO](Method.GET, uri"/links/exist_linkid")
-      )
 
     type DecodeResult[A] = Either[Error, A]
 
     val decodeResults: List[DecodeResult[List[Link]]] =
-      reqs
-        .traverse { req =>
-          for {
-            res <- routes.routes.run(req)
-            multiStrs <- res.bodyAsText.compile.toList
-          } yield multiStrs
-                  .traverse{ parse(_).flatMap(_.as[List[Link]]) }
-                  .map(_.flatten)
-        }
-        .unsafeRunSync()
+      List(
+        uri"/links/exist_linkid"     // should return mika_add_eren
+      , uri"/links/non_exist_linkid" // should not return any link
+      ).map(createReq)
+      .traverse { req =>
+        for {
+          res <- routes.routes.run(req)
+          multiStrs <- res.bodyAsText.compile.toList
+        } yield multiStrs
+                .traverse{ parse(_).flatMap(_.as[List[Link]]) }
+                .map(_.flatten)
+      }
+      .unsafeRunSync()
 
-    decodeResults(0) must be_==(Right(List(mika_add_eren)))
+    (decodeResults(0) must be_==(Right(List(mika_add_eren)))) and
+      (decodeResults(1) must be_==(Right(Nil)))
   }
 
   private def createEntityBody(s: String): EntityBody[IO] =
