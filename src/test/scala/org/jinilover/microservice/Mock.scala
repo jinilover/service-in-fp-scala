@@ -56,7 +56,7 @@ object Mock {
   }
 
   // To test how its user handle unique key violation
-  class MockDbViolateUniqueKey extends DummyPersistence {
+  class MockDbViolateUniqueKey(sampleLinkId: LinkId) extends DummyPersistence {
     var linkSet = Set.empty[String]
 
     override def add(link: LinkTypes.Link): IO[LinkId] = {
@@ -65,7 +65,7 @@ object Mock {
         IO.raiseError(new RuntimeException("""violates unique constraint "unique_unique_key""""))
       else {
         linkSet += uniqueKey
-        IO.pure(LinkId("dummy linkId"))
+        IO.pure(sampleLinkId)
       }
     }
   }
