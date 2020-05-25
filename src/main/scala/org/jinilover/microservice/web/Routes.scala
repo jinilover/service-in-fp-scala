@@ -15,10 +15,9 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
 import org.http4s.{EntityEncoder, EntityDecoder, HttpApp, HttpRoutes, QueryParamDecoder}
 
-import org.jinilover.microservice.ops.OpsService
-import org.jinilover.microservice.{InputError, LinkStatus, ThrowableError}
-import org.jinilover.microservice.LinkTypes._
-import org.jinilover.microservice.link.LinkService
+import ops.OpsService
+import LinkTypes.{UserId, LinkId, taggedTypeEncoder, taggedTypeDecoder}
+import link.LinkService
 
 trait Routes[F[_]] {
   def routes: HttpApp[F]

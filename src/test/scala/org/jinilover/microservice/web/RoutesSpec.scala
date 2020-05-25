@@ -5,6 +5,7 @@ package web
 import java.time.Clock
 
 import cats.instances.list._
+import cats.instances.either._
 import cats.syntax.flatMap._
 import cats.syntax.traverse._
 
@@ -13,16 +14,21 @@ import cats.effect.IO
 import fs2.Stream
 
 import io.circe.parser._
+import io.circe.Error
 
 import org.http4s._
 import org.http4s.implicits._
 import org.specs2.Specification
 
-import org.jinilover.microservice.ops.OpsService
-import org.jinilover.microservice.OpsTypes.VersionInfo
 import buildInfo.BuildInfo
-import Mock._
+
+import ops.OpsService
+import OpsTypes.VersionInfo
 import link.LinkService
+import LinkTypes.{Link, LinkId}
+import persistence.LinkPersistence
+
+import Mock._
 
 class RoutesSpec extends Specification {
   lazy val clock = Clock.systemDefaultZone()
@@ -30,11 +36,12 @@ class RoutesSpec extends Specification {
   override def is =
     s2"""
       Routes must
-        Get / $welcomeMsgOk
-        Get /version_info $versionInfoOk
-        POST /users/userId/links return bad request when user attempts to add himself $userAddToHimself
-        POST /users/userId/links return bad request when user adds the same link twice $addLink
-        GET /users/userId/links extract the required query parameter $getLinksWithQueryParams
+        Get   / $welcomeMsgOk
+        Get   /version_info $versionInfoOk
+        POST  /users/userId/links return bad request when user attempts to add himself $userAddToHimself
+        POST  /users/userId/links return bad request when user adds the same link twice $addLink
+        GET   /users/userId/links extract the required query parameter $getLinksWithQueryParams
+        GET   /links/linkId for existing link $getExistingLink
     """
 //  TODO put back afterwards
 
@@ -42,9 +49,7 @@ class RoutesSpec extends Specification {
   //  POST /users/userId/links successfully $addLink
 
   def welcomeMsgOk = {
-    val mockDb = new DummyPersistence
-    val linkService = LinkService.default(mockDb, clock)
-    val routes = createRoutes(linkService)
+    val routes = (createRoutes compose createLinkService)(new DummyPersistence)
 
     val expected = List(""""Welcome to REST servce in functional Scala!"""")
     val req = Request[IO](Method.GET, uri"/")
@@ -56,9 +61,7 @@ class RoutesSpec extends Specification {
   }
 
   def versionInfoOk = {
-    val mockDb = new DummyPersistence
-    val linkService = LinkService.default(mockDb, clock)
-    val routes = createRoutes(linkService)
+    val routes = (createRoutes compose createLinkService)(new DummyPersistence)
 
     val expected = List(Right(VersionInfo(
         name = BuildInfo.name
@@ -79,9 +82,7 @@ class RoutesSpec extends Specification {
   }
 
   def userAddToHimself = {
-    val mockDb = new DummyPersistence
-    val linkService = LinkService.default(mockDb, clock)
-    val routes = createRoutes(linkService)
+    val routes = (createRoutes compose createLinkService)(new DummyPersistence)
 
     val expected = List(""""Both user ids are the same"""")
     val req =
@@ -97,9 +98,7 @@ class RoutesSpec extends Specification {
   }
 
   def addLink = {
-    val mockDb = new MockDbViolateUniqueKey(dummyLinkId)
-    val linkService = LinkService.default(mockDb, clock)
-    val routes = createRoutes(linkService)
+    val routes = (createRoutes compose createLinkService)(new MockDbViolateUniqueKey(dummyLinkId))
 
     val req =
       Request[IO](
@@ -152,27 +151,30 @@ class RoutesSpec extends Specification {
       (srchCriterias(6) must be_==(erenSearchCriteria.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Pending))))
   }
 
+  def getExistingLink = {
+    val dbCache: Map[LinkId, Link] = Map(LinkId("exist_linkid") -> mika_add_eren)
+    val routes = (createRoutes compose createLinkService)(new MockDbForGetLink(dbCache))
+    val reqs =
+      List(
+        Request[IO](Method.GET, uri"/links/exist_linkid")
+      )
 
-  //  def getUserIdLinksWithQueryParams = {
-//    val expected = List(""""Get all links of eren for Pending"""")
-//    val req = Request[IO](Method.GET, uri"/users/eren/links?status=Pending")
-//    val result = execReqForBody(req)
-//
-//    result must be_==(expected)
-//
-//    val req2 = Request[IO](Method.GET, uri"/users/eren/links?status=accepted")
-//    val result2 = execReqForBody(req2)
-//
-//    result2 must be_==(List(""""Get all links of eren for Accepted""""))
-//
-//    val req3 = Request[IO](Method.GET, uri"/users/eren/links")
-//    val result3 = execReqForBody(req3)
-//
-//    result3 must be_==(List(""""Get all links of eren """"))
-//
-//  }
-//
+    type DecodeResult[A] = Either[Error, A]
 
+    val decodeResults: List[DecodeResult[List[Link]]] =
+      reqs
+        .traverse { req =>
+          for {
+            res <- routes.routes.run(req)
+            multiStrs <- res.bodyAsText.compile.toList
+          } yield multiStrs
+                  .traverse{ parse(_).flatMap(_.as[List[Link]]) }
+                  .map(_.flatten)
+        }
+        .unsafeRunSync()
+
+    decodeResults(0) must be_==(Right(List(mika_add_eren)))
+  }
 
   private def createEntityBody(s: String): EntityBody[IO] =
     Stream.emits(s.getBytes).evalMap(x => IO(x))
@@ -180,12 +182,15 @@ class RoutesSpec extends Specification {
 //  private def execReqForBody(req: Request[IO]): List[String] =
 //    streamToStrings(routes.routes.run(req).unsafeRunSync.bodyAsText)
 
-  private def streamToStrings(stream: Stream[IO, String]): List[String] =
-    stream.compile.toList.unsafeRunSync()
+//  private def streamToStrings(stream: Stream[IO, String]): List[String] =
+//    stream.compile.toList.unsafeRunSync()
 
   private def getBodyText(res: Response[IO]): List[String] =
     res.bodyAsText.compile.toList.unsafeRunSync()
 
-  private def createRoutes(linkService: LinkService[IO]): Routes[IO] =
-    Routes.default[IO](OpsService.default, linkService)
+  private val createLinkService: LinkPersistence[IO] => LinkService[IO] =
+    LinkService.default(_, clock)
+
+  private val createRoutes: LinkService[IO] => Routes[IO] =
+    Routes.default[IO](OpsService.default, _)
 }

@@ -8,7 +8,7 @@ import cats.MonadError
 import cats.syntax.monadError._
 import cats.syntax.functor._
 
-import LinkTypes._
+import LinkTypes.{UserId, LinkId, Link, SearchLinkCriteria}
 import persistence.LinkPersistence
 
 trait LinkService[F[_]] {

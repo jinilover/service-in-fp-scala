@@ -13,7 +13,7 @@ import doobie.syntax.connectionio._
 import doobie.syntax.string._
 import doobie.Fragments.{whereAndOpt}
 
-import LinkTypes._
+import LinkTypes.{LinkId, Link, SearchLinkCriteria, linkKey}
 import Doobie._
 
 trait LinkPersistence[F[_]] {

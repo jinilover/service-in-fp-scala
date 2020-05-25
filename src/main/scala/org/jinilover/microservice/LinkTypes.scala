@@ -3,7 +3,7 @@ package microservice
 
 import java.time.Instant
 
-import io.circe.generic.semiauto.deriveEncoder
+import io.circe.generic.semiauto.{deriveEncoder, deriveDecoder}
 import io.circe.{Decoder, Encoder}
 
 import scalaz.{@@, Tag}
@@ -30,12 +30,15 @@ object LinkTypes {
                 , uniqueKey: Option[String] = None
                )
 
+  object Link {
+    implicit val linkEncoder: Encoder[Link] = deriveEncoder
+    implicit val linkDecoder: Decoder[Link] = deriveDecoder
+  }
+
   case class SearchLinkCriteria(userId: UserId
                               , linkStatus: Option[LinkStatus] = None
                               , isInitiator: Option[Boolean] = None
                              )
-
-  implicit val linkEncoder: Encoder[Link] = deriveEncoder
 
   def linkKey(userIds: UserId*): String =
     userIds.map(_.unwrap).sorted.mkString("_")
@@ -48,4 +51,10 @@ object LinkStatus {
 
   implicit def linkStatusEncoder: Encoder[LinkStatus] =
     implicitly[Encoder[String]].contramap(_.toString)
+
+  implicit def linkStatusDecoder: Decoder[LinkStatus] =
+    implicitly[Decoder[String]].map { s =>
+      if (Pending.toString == s) Pending else Accepted
+    }
+
 }

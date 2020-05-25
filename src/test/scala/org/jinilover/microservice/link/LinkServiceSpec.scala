@@ -7,7 +7,7 @@ import java.time.{Clock}
 import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
 
-import LinkTypes._
+import LinkTypes.{LinkId, SearchLinkCriteria, Link}
 
 import Mock._
 
@@ -79,9 +79,7 @@ class LinkServiceSpec extends Specification {
   }
 
   def getLink = {
-    val dbCache: Map[LinkId, Link] = Map(
-      dummyLinkId -> mika_add_eren
-    )
+    val dbCache: Map[LinkId, Link] = Map(dummyLinkId -> mika_add_eren)
     val mockDb = new MockDbForGetLink(dbCache)
     val service = LinkService.default(mockDb, clock)
 

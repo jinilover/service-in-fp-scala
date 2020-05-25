@@ -42,7 +42,7 @@ object Mock {
 
   val erenSearchCriteria = SearchLinkCriteria(userId = eren)
 
-  val dummyLinkId = LinkId("dummy linkId")
+  val dummyLinkId = LinkId("dummy_linkId")
 
   // mock implementation
   class DummyPersistence extends LinkPersistence[IO] {
