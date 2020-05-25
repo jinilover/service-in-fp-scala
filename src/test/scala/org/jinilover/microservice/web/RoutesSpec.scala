@@ -209,12 +209,6 @@ class RoutesSpec extends Specification {
   private def createEntityBody(s: String): EntityBody[IO] =
     Stream.emits(s.getBytes).evalMap(x => IO(x))
 
-//  private def execReqForBody(req: Request[IO]): List[String] =
-//    streamToStrings(routes.routes.run(req).unsafeRunSync.bodyAsText)
-
-//  private def streamToStrings(stream: Stream[IO, String]): List[String] =
-//    stream.compile.toList.unsafeRunSync()
-
   private def getBodyText(res: Response[IO]): List[String] =
     res.bodyAsText.compile.toList.unsafeRunSync()
 

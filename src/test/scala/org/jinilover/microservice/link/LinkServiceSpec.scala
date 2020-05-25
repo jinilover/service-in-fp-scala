@@ -4,6 +4,9 @@ package link
 
 import java.time.{Clock}
 
+import cats.instances.list._
+import cats.syntax.traverse._
+
 import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
 
@@ -62,10 +65,14 @@ class LinkServiceSpec extends Specification {
     val mockDb = new MockDbForRemoveLink
     val service = LinkService.default(mockDb, clock)
 
-    (service.removeLink(dummyLinkId).unsafeRunSync()
-      must be_==(s"Linkid ${dummyLinkId.unwrap} removed successfully")) and
-    (service.removeLink(dummyLinkId).unsafeRunSync()
-      must be_==(s"No need to remove non-exist linkid ${dummyLinkId.unwrap}"))
+    // run twice, where each time should return different messages
+    val msgs =
+      List.fill(2)(dummyLinkId)
+        .traverse(service.removeLink)
+        .unsafeRunSync()
+
+    (msgs(0) must be_==(s"Linkid ${dummyLinkId.unwrap} removed successfully")) and
+    (msgs(1) must be_==(s"No need to remove non-exist linkid ${dummyLinkId.unwrap}"))
   }
 
   def getLinks = {
