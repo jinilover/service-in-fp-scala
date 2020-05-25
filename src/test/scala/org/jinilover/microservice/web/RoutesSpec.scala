@@ -25,7 +25,7 @@ import buildInfo.BuildInfo
 import ops.OpsService
 import OpsTypes.VersionInfo
 import link.LinkService
-import LinkTypes.{Link, LinkId}
+import LinkTypes.{Link, LinkId, LinkStatus}
 import persistence.LinkPersistence
 
 import Mock._

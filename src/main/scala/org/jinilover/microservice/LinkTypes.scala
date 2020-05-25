@@ -21,6 +21,21 @@ object LinkTypes {
   implicit def taggedTypeDecoder[A, T](implicit DA: Decoder[A]): Decoder[A @@ T] =
     DA.map(Tag.apply[A, T])
 
+
+  sealed trait LinkStatus
+  object LinkStatus {
+    case object Pending extends LinkStatus
+    case object Accepted extends LinkStatus
+
+    implicit def linkStatusEncoder: Encoder[LinkStatus] =
+      implicitly[Encoder[String]].contramap(_.toString)
+
+    implicit def linkStatusDecoder: Decoder[LinkStatus] =
+      implicitly[Decoder[String]].map { s =>
+        if (Pending.toString == s) Pending else Accepted
+      }
+  }
+
   case class Link(id: Option[LinkId] = None
                 , initiatorId: UserId
                 , targetId: UserId
@@ -42,19 +57,12 @@ object LinkTypes {
 
   def linkKey(userIds: UserId*): String =
     userIds.map(_.unwrap).sorted.mkString("_")
-}
 
-sealed trait LinkStatus
-object LinkStatus {
-  case object Pending extends LinkStatus
-  case object Accepted extends LinkStatus
-
-  implicit def linkStatusEncoder: Encoder[LinkStatus] =
-    implicitly[Encoder[String]].contramap(_.toString)
-
-  implicit def linkStatusDecoder: Decoder[LinkStatus] =
-    implicitly[Decoder[String]].map { s =>
-      if (Pending.toString == s) Pending else Accepted
-    }
+  def toLinkStatus(s: String): LinkStatus = {
+    if (s.toUpperCase == LinkStatus.Pending.toString.toUpperCase)
+      LinkStatus.Pending
+    else
+      LinkStatus.Accepted
+  }
 
 }

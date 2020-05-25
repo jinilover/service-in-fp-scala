@@ -16,7 +16,7 @@ import org.http4s.implicits._
 import org.http4s.{EntityEncoder, EntityDecoder, HttpApp, HttpRoutes, QueryParamDecoder}
 
 import ops.OpsService
-import LinkTypes.{UserId, LinkId, taggedTypeEncoder, taggedTypeDecoder}
+import LinkTypes.{UserId, LinkId, taggedTypeEncoder, taggedTypeDecoder, LinkStatus, toLinkStatus}
 import link.LinkService
 
 trait Routes[F[_]] {

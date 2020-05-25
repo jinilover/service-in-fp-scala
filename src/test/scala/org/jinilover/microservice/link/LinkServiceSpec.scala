@@ -7,7 +7,7 @@ import java.time.{Clock}
 import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
 
-import LinkTypes.{LinkId, SearchLinkCriteria, Link}
+import LinkTypes.{LinkId, SearchLinkCriteria, Link, LinkStatus}
 
 import Mock._
 

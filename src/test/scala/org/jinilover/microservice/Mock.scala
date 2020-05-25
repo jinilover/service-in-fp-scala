@@ -6,7 +6,7 @@ import cats.effect.IO
 
 import cats.syntax.flatMap._
 
-import org.jinilover.microservice.LinkTypes.{Link, LinkId, SearchLinkCriteria, UserId, linkKey}
+import org.jinilover.microservice.LinkTypes.{Link, LinkStatus, LinkId, SearchLinkCriteria, UserId, linkKey}
 
 import org.jinilover.microservice.persistence.LinkPersistence
 
