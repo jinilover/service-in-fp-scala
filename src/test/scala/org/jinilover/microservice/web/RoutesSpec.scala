@@ -43,6 +43,7 @@ class RoutesSpec extends Specification {
         GET   /users/userId/links extract the required query parameter $getLinksWithQueryParams
         GET   /links/linkId for existing or non-exist link $getLink
         PUT   /links/linkId for accepting a link $acceptLink
+        DELETE /links/linkId for deleting a link $deleteLink
     """
 
   def welcomeMsgOk = {
@@ -185,6 +186,24 @@ class RoutesSpec extends Specification {
     routes.routes.run(req).unsafeRunSync()
 
     mockService.linkId.unwrap must be_==("linkid_be_accepted")
+  }
+
+  def deleteLink = {
+    val routes = (createRoutes compose createLinkService)(new MockDbForRemoveLink)
+
+    val req = Request[IO](Method.DELETE, uri"/links/any_id_is_ok")
+
+    // run twice, where each time should return different messages
+    val msgs: List[String] =
+      List.fill(2)(req)
+        .traverse { req =>
+          routes.routes.run(req) >>= (_.bodyAsText.compile.toList)
+        }.map(_.flatten)
+        .unsafeRunSync()
+
+    (msgs(0) must be_==(""""Linkid any_id_is_ok removed successfully"""")) and
+      (msgs(1) must be_==(""""No need to remove non-exist linkid any_id_is_ok""""))
+
   }
 
   private def createEntityBody(s: String): EntityBody[IO] =
