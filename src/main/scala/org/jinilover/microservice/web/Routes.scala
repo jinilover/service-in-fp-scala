@@ -85,7 +85,6 @@ object Routes {
 
     def authedRoutes: AuthedRoutes[UserId, F] = AuthedRoutes.of {
       case DELETE -> Root / "links" / linkId as userId =>
-        F.pure(println(s"userId = $userId"))
         linkService.removeLink(LinkId(linkId)).flatMap(msg => Ok(msg))
     }
 

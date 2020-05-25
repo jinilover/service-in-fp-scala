@@ -44,6 +44,7 @@ class RoutesSpec extends Specification {
         GET   /links/linkId for existing or non-exist link $getLink
         PUT   /links/linkId for accepting a link $acceptLink
         DELETE /links/linkId unauthorised $deleteLinkWithoutToken
+        DELETE /links/linkId attacked token $deleteLinkWithToken
     """
 
   def welcomeMsgOk = {
@@ -199,7 +200,7 @@ class RoutesSpec extends Specification {
     res.status must be_==(Status.Unauthorized)
   }
 
-  def deleteLink = {
+  def deleteLinkWithToken = {
     val routes = (createRoutes compose createLinkService)(new MockDbForRemoveLink)
 
     val authHeader = Header(name = "Authorization", value = "Bearer eren")
@@ -210,19 +211,15 @@ class RoutesSpec extends Specification {
     )
 
     // run twice, where each time should return different messages
-    println(routes.routes.run(req).unsafeRunSync().status)
-//    val msgs: List[String] =
-//      List.fill(2)(req)
-//        .traverse { req =>
-//          routes.routes.run(req) >>= (_.bodyAsText.compile.toList)
-//        }.map(_.flatten)
-//        .unsafeRunSync()
+    val msgs: List[String] =
+      List.fill(2)(req)
+        .traverse { req =>
+          routes.routes.run(req) >>= (_.bodyAsText.compile.toList)
+        }.map(_.flatten)
+        .unsafeRunSync()
 
-//    println(s"msgs = $msgs")
-//    (msgs(0) must be_==(""""Linkid any_id_is_ok removed successfully"""")) and
-//      (msgs(1) must be_==(""""No need to remove non-exist linkid any_id_is_ok""""))
-
-    true must beTrue
+    (msgs(0) must be_==(""""Linkid any_id_is_ok removed successfully"""")) and
+      (msgs(1) must be_==(""""No need to remove non-exist linkid any_id_is_ok""""))
   }
 
   private def createEntityBody(s: String): EntityBody[IO] =
