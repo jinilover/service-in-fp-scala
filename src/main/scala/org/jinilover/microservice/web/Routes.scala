@@ -27,11 +27,11 @@ trait Routes[F[_]] {
 
 object Routes {
   def default[F[_]: Sync](opsService: OpsService
-                        , linkService: => LinkService[F]): Routes[F] =
-    new Http4sRoutes[F](opsService, () => linkService) //TODO remove after testing
+                        , linkService: LinkService[F]): Routes[F] =
+    new Http4sRoutes[F](opsService, linkService)
 
   class Http4sRoutes[F[_]](opsService: OpsService
-                        , linkService: () => LinkService[F])(implicit F: Sync[F])
+                        , linkService: LinkService[F])(implicit F: Sync[F])
     extends Routes[F]
     with Http4sDsl[F] {
 
@@ -59,7 +59,7 @@ object Routes {
     def serviceRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
       case req@POST -> Root / "users" / userId / "links" =>
         req.decode[UserId] { targetId =>
-          linkService()
+          linkService
             .addLink(UserId(userId), targetId)
             .redeemWith(
               { case InputError(msg) => BadRequest(msg) },
@@ -70,23 +70,23 @@ object Routes {
       case GET -> Root / "users" / userId / "links"
         :? OptionalStatusQueryParamMatcher(linkStatusOps)
         :? OptionalIsUserInitiatorQueryParamMatcher(isInitiatorOps) =>
-        linkService()
+        linkService
           .getLinks(UserId(userId), linkStatusOps, isInitiatorOps)
           .flatMap(linkIds => Ok(linkIds))
 
       case GET -> Root / "links" / linkId =>
-        linkService()
+        linkService
           .getLink(LinkId(linkId))
           .flatMap(optLink => Ok(optLink.toList))
 
       case PUT -> Root / "links" / linkId =>
-        linkService().acceptLink(LinkId(linkId)) >> Ok(s"LinkId $linkId accepted")
+        linkService.acceptLink(LinkId(linkId)) >> Ok(s"LinkId $linkId accepted")
     }
 
     def authedRoutes: AuthedRoutes[UserId, F] = AuthedRoutes.of {
       case DELETE -> Root / "links" / linkId as userId =>
         F.pure(println(s"userId = $userId"))
-        linkService().removeLink(LinkId(linkId)).flatMap(msg => Ok(msg))
+        linkService.removeLink(LinkId(linkId)).flatMap(msg => Ok(msg))
     }
 
     val authUser: Kleisli[OptionT[F, *], Request[F], UserId] =
