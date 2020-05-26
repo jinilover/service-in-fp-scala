@@ -3,7 +3,7 @@ package org.jinilover.microservice
 import java.time.Clock
 import java.util.concurrent.Executors
 
-import cats.effect.{ContextShift, ExitCode, IO, IOApp, Timer}
+import cats.effect.{ExitCode, IO, IOApp}
 import cats.implicits._
 
 import org.jinilover.microservice.persistence.{Doobie, LinkPersistence, Migrations}

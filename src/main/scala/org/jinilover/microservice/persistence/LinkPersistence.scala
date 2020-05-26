@@ -2,7 +2,7 @@ package org.jinilover
 package microservice
 package persistence
 
-import java.time.{Clock, Instant}
+import java.time.{Instant}
 import java.util.UUID
 
 import cats.effect.IO

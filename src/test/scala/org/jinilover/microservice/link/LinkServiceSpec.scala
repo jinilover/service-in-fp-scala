@@ -2,7 +2,7 @@ package org.jinilover
 package microservice
 package link
 
-import java.time.{Clock}
+import java.time.Clock
 
 import cats.instances.list._
 import cats.syntax.traverse._
@@ -10,9 +10,10 @@ import cats.syntax.traverse._
 import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
 
-import LinkTypes.{LinkId, SearchLinkCriteria, Link, LinkStatus}
+import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria}
 
 import Mock._
+import cats.effect.IO
 
 class LinkServiceSpec extends Specification {
   lazy val clock = Clock.systemDefaultZone()
@@ -31,8 +32,8 @@ class LinkServiceSpec extends Specification {
     """
 
   def userAddToHimself = {
-    val mockDb = new DummyPersistence
-    val service = LinkService.default(mockDb, clock)
+    val mockDb = new DummyPersistence[IO]
+    val service = LinkService.default[IO](mockDb, clock)
 
     service.addLink(eren, eren).unsafeRunSync() must
       throwAn[Error].like { case InputError(msg) =>
