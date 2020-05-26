@@ -37,7 +37,7 @@ object LinkPersistence {
       sql"""
             INSERT INTO links (id, initiator_id, target_id, status, creation_date, unique_key)
             VALUES ($linkId, $initiatorId, $targetId, $status, $creationDate, $uniqueKey)
-         """.update.run.transact(xa) >> IO(linkId)
+         """.update.run.transact(xa) *> IO(linkId)
     }
 
     override def get(id: LinkId): IO[Option[Link]] = {

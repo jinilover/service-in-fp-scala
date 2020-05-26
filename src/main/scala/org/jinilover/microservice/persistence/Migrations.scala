@@ -1,4 +1,6 @@
-package org.jinilover.microservice.persistence
+package org.jinilover
+package microservice
+package persistence
 
 import cats.effect.IO
 import org.flywaydb.core.Flyway
@@ -9,10 +11,10 @@ trait Migrations[F[_]] {
 }
 
 object Migrations {
-  def default(): Migrations[IO] =
-    new FlywayMigrations()
+  def default(log: Log[IO]): Migrations[IO] =
+    new FlywayMigrations(log)
 
-  private class FlywayMigrations() extends Migrations[IO] {
+  private class FlywayMigrations(log: Log[IO]) extends Migrations[IO] {
     override def migrate: IO[Unit] =
       IO {
         val flyway = new Flyway()
@@ -22,7 +24,7 @@ object Migrations {
       }.handleErrorWith {
         case fwe: FlywayException => IO.raiseError(fwe)
       }.flatMap { i =>
-        IO{println(s"$i migrations performed")}
+        log.info(s"$i migrations performed")
       }
   }
 }

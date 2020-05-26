@@ -37,8 +37,9 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
       GRANT ALL ON SCHEMA public TO public;
     """
     val dropAndCreate = for {
+      log <- Log.default
       _ <- Update0(sql, None).run.transact(xa)
-      _ <- Migrations.default().migrate
+      _ <- Migrations.default(log).migrate
     } yield ()
     dropAndCreate.unsafeRunSync()
   }

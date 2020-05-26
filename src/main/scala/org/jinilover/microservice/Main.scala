@@ -21,13 +21,18 @@ object Main extends IOApp {
     implicit val ec: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
 
     for {
-      _ <- Migrations.default().migrate
-      opsService = OpsService.default
-      clock = Clock.systemDefaultZone()
+      log <- Log.default
+      _ <- Migrations.default(log).migrate
+
       xa = Doobie.transactor
       persistence = LinkPersistence.default(xa)
-      linkService = LinkService.default[IO](persistence, clock)
+
+      opsService = OpsService.default
+      clock = Clock.systemDefaultZone()
+      linkService = LinkService.default[IO](persistence, clock, log)
+
       routes = Routes.default[IO](opsService, linkService)
+
       exitCode <- WebServer.default(routes).start.compile.drain.as(ExitCode.Success)
     } yield exitCode
   }

@@ -7,6 +7,7 @@ import java.time.Clock
 import cats.MonadError
 import cats.syntax.monadError._
 import cats.syntax.functor._
+import cats.syntax.apply._
 
 import LinkTypes.{UserId, LinkId, Link, LinkStatus, SearchLinkCriteria}
 import persistence.LinkPersistence
@@ -23,18 +24,24 @@ trait LinkService[F[_]] {
 
 object LinkService {
   def default[F[_]]
-    (persistence: LinkPersistence[F], clock: Clock)
+    ( persistence: LinkPersistence[F]
+    , clock: Clock
+    , log: Log[F] )
     (implicit F: MonadError[F, Throwable]): LinkService[F] =
-    new LinkServiceImpl[F](persistence, clock)
+    new LinkServiceImpl[F](persistence, clock, log)
 
   class LinkServiceImpl[F[_]]
-    (persistence: LinkPersistence[F], clock: Clock)
+    ( persistence: LinkPersistence[F]
+    , clock: Clock
+    , log: Log[F] )
     (implicit F: MonadError[F, Throwable])
     extends LinkService[F] {
 
     override def addLink(initiatorId: UserId, targetId: UserId): F[LinkId] =
-      if (initiatorId == targetId)
-        F.raiseError(InputError("Both user ids are the same"))
+      if (initiatorId == targetId) {
+        val err = InputError("Both user ids are the same")
+        log.warn(err.msg) *> F.raiseError(err)
+      }
       else {
         val link = Link(
           initiatorId = initiatorId
@@ -44,11 +51,13 @@ object LinkService {
 
         persistence.add(link)
           .redeemWith(
-            err => F.raiseError {
-              if (err.getMessage.toLowerCase contains """violates unique constraint "unique_unique_key"""")
-                InputError(s"Link between ${initiatorId.unwrap} and ${targetId.unwrap} already exists")
+            err => {
+              if (err.getMessage.toLowerCase contains """violates unique constraint "unique_unique_key"""") {
+                val inputErr = InputError(s"Link between ${initiatorId.unwrap} and ${targetId.unwrap} already exists")
+                log.warn(inputErr.msg) *> F.raiseError(inputErr)
+              }
               else
-                err
+                F.raiseError(err)
             },
             F.pure
           )

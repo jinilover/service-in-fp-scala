@@ -6,6 +6,9 @@ import java.time.Clock
 
 import cats.instances.list._
 import cats.syntax.traverse._
+import cats.syntax.flatMap._
+
+import cats.effect.IO
 
 import org.specs2.Specification
 import org.specs2.specification.core.SpecStructure
@@ -13,7 +16,6 @@ import org.specs2.specification.core.SpecStructure
 import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria}
 
 import Mock._
-import cats.effect.IO
 
 class LinkServiceSpec extends Specification {
   lazy val clock = Clock.systemDefaultZone()
@@ -32,8 +34,9 @@ class LinkServiceSpec extends Specification {
     """
 
   def userAddToHimself = {
+    val log = Log.default.unsafeRunSync()
     val mockDb = new DummyPersistence[IO]
-    val service = LinkService.default[IO](mockDb, clock)
+    val service = LinkService.default[IO](mockDb, clock, log)
 
     service.addLink(eren, eren).unsafeRunSync() must
       throwAn[Error].like { case InputError(msg) =>
@@ -42,59 +45,68 @@ class LinkServiceSpec extends Specification {
   }
 
   def handleUniqueKeyViolation = {
+    val log = Log.default.unsafeRunSync()
     val mockDb = new MockDbViolateUniqueKey(dummyLinkId)
-    val service = LinkService.default(mockDb, clock)
+    val service = LinkService.default(mockDb, clock, log)
 
     (service.addLink(mikasa, eren).unsafeRunSync() must be_==(dummyLinkId)) and
-    (service.addLink(mikasa, eren).unsafeRunSync() must
-      throwAn[Error].like { case InputError(msg) =>
-        msg must be_==(s"Link between ${mikasa.unwrap} and ${eren.unwrap} already exists")
-      })
+      (service.addLink(mikasa, eren).unsafeRunSync() must
+        throwAn[Error].like { case InputError(msg) =>
+          msg must be_==(s"Link between ${mikasa.unwrap} and ${eren.unwrap} already exists")
+        })
   }
 
-  def acceptLink = {
-    val mockDb = new MockDbForUpdateLink
-    val service = LinkService.default(mockDb, clock)
-    service.acceptLink(dummyLinkId).unsafeRunSync
+  def acceptLink =
+    (
+      for {
+        log <- Log.default
+        mockDb = new MockDbForUpdateLink
+        service = LinkService.default(mockDb, clock, log)
+        _ <- service.acceptLink(dummyLinkId)
+      } yield
+        (mockDb.linkId must be_==(dummyLinkId)) and
+          (Math.abs(mockDb.confirmDate.getEpochSecond - clock.instant.getEpochSecond) must be ~(1L +/- 1L)) and
+          (mockDb.status must be_==(LinkStatus.Accepted))
+    ).unsafeRunSync()
 
-    (mockDb.linkId must be_==(dummyLinkId)) and
-    (Math.abs(mockDb.confirmDate.getEpochSecond - clock.instant.getEpochSecond) must be ~(1L +/- 1L)) and
-    (mockDb.status must be_==(LinkStatus.Accepted))
-  }
+  def removeLink =
+    (
+      for {
+        log <- Log.default
+        mockDb = new MockDbForRemoveLink
+        service = LinkService.default(mockDb, clock, log)
 
-  def removeLink = {
-    val mockDb = new MockDbForRemoveLink
-    val service = LinkService.default(mockDb, clock)
+        // run twice, where each time should return different messages
+        msgs <- List.fill(2)(dummyLinkId).traverse(service.removeLink)
+      } yield
+        (msgs(0) must be_==(s"Linkid ${dummyLinkId.unwrap} removed successfully")) and
+          (msgs(1) must be_==(s"No need to remove non-exist linkid ${dummyLinkId.unwrap}"))
+    ).unsafeRunSync()
 
-    // run twice, where each time should return different messages
-    val msgs =
-      List.fill(2)(dummyLinkId)
-        .traverse(service.removeLink)
-        .unsafeRunSync()
+  def getLinks =
+    (
+      for {
+        log <- Log.default
+        mockDb = new MockDbForGetLinks(Nil)
+        service = LinkService.default(mockDb, clock, log)
 
-    (msgs(0) must be_==(s"Linkid ${dummyLinkId.unwrap} removed successfully")) and
-    (msgs(1) must be_==(s"No need to remove non-exist linkid ${dummyLinkId.unwrap}"))
-  }
+        _ <- service.getLinks(mikasa, Some(LinkStatus.Pending), Some(true))
+        expectedSearchCriteria = SearchLinkCriteria(mikasa, Some(LinkStatus.Pending), Some(true))
+      } yield mockDb.searchCriteria must be_==(expectedSearchCriteria)
+    ).unsafeRunSync()
 
-  def getLinks = {
-    val mockDb = new MockDbForGetLinks(Nil)
-    val service = LinkService.default(mockDb, clock)
+  def getLink =
+    (
+      for {
+        log <- Log.default
+        dbCache: Map[LinkId, Link] = Map(dummyLinkId -> mika_add_eren)
+        mockDb = new MockDbForGetLink(dbCache)
+        service = LinkService.default(mockDb, clock, log)
 
-    service.getLinks(mikasa, Some(LinkStatus.Pending), Some(true)).unsafeRunSync()
-    val expectedSearchCriteria = SearchLinkCriteria(mikasa, Some(LinkStatus.Pending), Some(true))
-
-    mockDb.searchCriteria must be_==(expectedSearchCriteria)
-  }
-
-  def getLink = {
-    val dbCache: Map[LinkId, Link] = Map(dummyLinkId -> mika_add_eren)
-    val mockDb = new MockDbForGetLink(dbCache)
-    val service = LinkService.default(mockDb, clock)
-
-    val existLink = service.getLink(dummyLinkId).unsafeRunSync()
-    val nonExistLInk = service.getLink(LinkId("non exist link")).unsafeRunSync()
-
-    (existLink must beSome(mika_add_eren)) and
-      (nonExistLInk must beNone)
-  }
+        existLink <- service.getLink(dummyLinkId)
+        nonExistLInk <- service.getLink(LinkId("non exist link"))
+      } yield
+        (existLink must beSome(mika_add_eren)) and
+        (nonExistLInk must beNone)
+    ).unsafeRunSync()
 }

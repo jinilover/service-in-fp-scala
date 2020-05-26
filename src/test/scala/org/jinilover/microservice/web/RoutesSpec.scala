@@ -6,8 +6,9 @@ import java.time.Clock
 
 import cats.instances.list._
 import cats.instances.either._
-import cats.syntax.flatMap._
 import cats.syntax.traverse._
+import cats.syntax.apply._
+import cats.syntax.flatMap._
 
 import cats.effect.IO
 
@@ -77,7 +78,7 @@ class RoutesSpec extends Specification {
     val bodyText = getBodyText(res)
 
     (res.status must be_==(Status.Ok)) and
-      (bodyText.map{s => parse(s).flatMap(_.as[VersionInfo])} must be_==(expected))
+      (bodyText.map(s => parse(s).flatMap(_.as[VersionInfo])) must be_==(expected))
   }
 
   def userAddToHimself = {
@@ -123,7 +124,7 @@ class RoutesSpec extends Specification {
     val createReq: Uri => Request[IO] = Request[IO](Method.GET, _)
 
     val mockDb = new MockDbForGetLinks(Nil)
-    val linkService = LinkService.default(mockDb, clock)
+    val linkService = createLinkService(mockDb)
     val routes = createRoutes(linkService)
 
     val reqs = List(
@@ -138,7 +139,7 @@ class RoutesSpec extends Specification {
 
     val srchCriterias =
       reqs.traverse { req =>
-        routes.routes.run(req) >> IO(mockDb.searchCriteria)
+        routes.routes.run(req) *> IO(mockDb.searchCriteria)
       }.unsafeRunSync()
 
     (srchCriterias(0) must be_==(erenSearchCriteria)) and
@@ -228,8 +229,10 @@ class RoutesSpec extends Specification {
   private def getBodyText(res: Response[IO]): List[String] =
     res.bodyAsText.compile.toList.unsafeRunSync()
 
-  private val createLinkService: LinkPersistence[IO] => LinkService[IO] =
-    LinkService.default(_, clock)
+  private val createLinkService: LinkPersistence[IO] => LinkService[IO] = {
+    val log = Log.default.unsafeRunSync()
+    LinkService.default(_, clock, log)
+  }
 
   private val createRoutes: LinkService[IO] => Routes[IO] =
     Routes.default[IO](OpsService.default, _)

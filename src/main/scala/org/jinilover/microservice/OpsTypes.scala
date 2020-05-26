@@ -1,4 +1,5 @@
-package org.jinilover.microservice
+package org.jinilover
+package microservice
 
 import io.circe.generic.semiauto._
 import io.circe.{Encoder, Decoder}

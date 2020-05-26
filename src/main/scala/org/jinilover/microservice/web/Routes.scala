@@ -6,6 +6,7 @@ import cats.data.{Kleisli, OptionT}
 import cats.syntax.semigroupk._
 import cats.syntax.monadError._
 import cats.syntax.flatMap._
+import cats.syntax.apply._
 
 import cats.effect.{Sync}
 
@@ -80,7 +81,7 @@ object Routes {
           .flatMap(optLink => Ok(optLink.toList))
 
       case PUT -> Root / "links" / linkId =>
-        linkService.acceptLink(LinkId(linkId)) >> Ok(s"LinkId $linkId accepted")
+        linkService.acceptLink(LinkId(linkId)) *> Ok(s"LinkId $linkId accepted")
     }
 
     def authedRoutes: AuthedRoutes[UserId, F] = AuthedRoutes.of {

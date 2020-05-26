@@ -1,10 +1,12 @@
-package org.jinilover.microservice
+package org.jinilover
+package microservice
 
 import java.time.{Clock, Instant}
 
 import cats.effect.IO
 
 import cats.syntax.flatMap._
+import cats.syntax.apply._
 
 import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId, linkKey}
 import link.LinkService
@@ -65,10 +67,8 @@ object Mock {
       val uniqueKey = linkKey(link.initiatorId, link.targetId)
       if (linkSet contains uniqueKey)
         IO.raiseError(new RuntimeException("""violates unique constraint "unique_unique_key""""))
-      else {
-        linkSet += uniqueKey
-        IO.pure(sampleLinkId)
-      }
+      else
+        IO(linkSet += uniqueKey) *> IO.pure(sampleLinkId)
     }
   }
 
@@ -78,10 +78,9 @@ object Mock {
     var status: LinkStatus = LinkStatus.Pending
 
     override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): IO[Unit] = {
-      IO(println("update called")) >>
-        IO(this.linkId = linkId) >>
-        IO(this.confirmDate = confirmDate) >>
-        IO(this.status = status)
+      IO(this.linkId = linkId) *>
+      IO(this.confirmDate = confirmDate) *>
+      IO(this.status = status)
     }
   }
 
@@ -97,7 +96,7 @@ object Mock {
     var searchCriteria = erenSearchCriteria
 
     override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): IO[List[LinkId]] =
-      IO(searchCriteria = srchCriteria) >> IO(linkIds)
+      IO(searchCriteria = srchCriteria) *> IO(linkIds)
   }
 
   class MockDbForGetLink(cache: Map[LinkId, Link]) extends DummyPersistence[IO] {
