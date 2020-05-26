@@ -10,6 +10,7 @@ package object microservice {
 
   case class InputError(msg: String) extends Error
   case class ThrowableError(override val getCause: Throwable) extends Error
+  case class ConfigError(msg: String) extends Error
 
   trait Log[F[_]] {
     def error(err: Error): F[Unit]
@@ -28,6 +29,7 @@ package object microservice {
         err match {
           case InputError(msg) => IO(logger.warn(msg))
           case ThrowableError(cause) => IO(logger.error("", cause))
+          case ConfigError(msg) => IO(logger.error(msg))
         }
 
       override def warn(msg: String): IO[Unit] = IO(logger.warn(msg))

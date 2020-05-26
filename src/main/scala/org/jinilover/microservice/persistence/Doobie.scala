@@ -14,7 +14,8 @@ import scalaz.{@@, Tag}
 import doobie._
 import doobie.implicits.javasql._
 
-import org.jinilover.microservice.LinkTypes.{LinkId, UserId, LinkStatus, toLinkStatus}
+import org.jinilover.microservice.ConfigTypes.DbConfig
+import org.jinilover.microservice.LinkTypes.{LinkId, LinkStatus, UserId, toLinkStatus}
 
 object Doobie {
   private def taggedMeta[A: Meta: TypeTag, T: TypeTag]: Meta[A @@ T] =
@@ -33,12 +34,12 @@ object Doobie {
     taggedMeta[String, UserId.Marker]
 
 
-  def transactor(implicit cs: ContextShift[IO]): Transactor[IO] =
-    // TODO use config
+  def transactor(dbConfig: DbConfig)
+                (implicit cs: ContextShift[IO]): Transactor[IO] =
     Transactor.fromDriverManager[IO](
       "org.postgresql.Driver"
-    , "jdbc:postgresql://localhost:5432/postgres"
-    , "postgres"
-    , "password"
+    , dbConfig.url
+    , dbConfig.user
+    , dbConfig.password
     )
 }

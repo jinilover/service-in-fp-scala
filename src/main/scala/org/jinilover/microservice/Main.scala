@@ -6,6 +6,7 @@ import java.util.concurrent.Executors
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.implicits._
 
+import org.jinilover.microservice.config.ConfigLoader
 import org.jinilover.microservice.persistence.{Doobie, LinkPersistence, Migrations}
 import org.jinilover.microservice.link.LinkService
 import org.jinilover.microservice.web.{Routes, WebServer}
@@ -21,10 +22,12 @@ object Main extends IOApp {
     implicit val ec: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
 
     for {
-      log <- Log.default
-      _ <- Migrations.default(log).migrate
+      appConfig <- ConfigLoader.default.load
 
-      xa = Doobie.transactor
+      log <- Log.default
+      _ <- Migrations.default(log, appConfig.db).migrate
+
+      xa = Doobie.transactor(appConfig.db)
       persistence = LinkPersistence.default(xa)
 
       opsService = OpsService.default
@@ -33,7 +36,7 @@ object Main extends IOApp {
 
       routes = Routes.default[IO](opsService, linkService)
 
-      exitCode <- WebServer.default(routes).start.compile.drain.as(ExitCode.Success)
+      exitCode <- WebServer.default(routes, appConfig.webserver).start.compile.drain.as(ExitCode.Success)
     } yield exitCode
   }
 }

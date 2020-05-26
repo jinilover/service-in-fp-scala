@@ -21,15 +21,16 @@ import org.specs2.specification.BeforeEach
 
 import LinkTypes.LinkStatus
 import Mock._
+import config.ConfigLoader
 
 class LinkPersistenceSpec extends Specification with BeforeEach {
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
 
-  val xa = Doobie.transactor
+  val dbConfig = ConfigLoader.default.load.map(_.db).unsafeRunSync()
+  val xa = Doobie.transactor(dbConfig)
   val clock = Clock.systemDefaultZone()
 
   def createSchema: Unit = {
-    //TODO replace `postgres` by config
     val sql = s"""
       DROP SCHEMA public CASCADE;
       CREATE SCHEMA public;
@@ -39,7 +40,7 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
     val dropAndCreate = for {
       log <- Log.default
       _ <- Update0(sql, None).run.transact(xa)
-      _ <- Migrations.default(log).migrate
+      _ <- Migrations.default(log, dbConfig).migrate
     } yield ()
     dropAndCreate.unsafeRunSync()
   }

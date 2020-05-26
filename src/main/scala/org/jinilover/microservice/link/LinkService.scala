@@ -40,7 +40,7 @@ object LinkService {
     override def addLink(initiatorId: UserId, targetId: UserId): F[LinkId] =
       if (initiatorId == targetId) {
         val err = InputError("Both user ids are the same")
-        log.warn(err.msg) *> F.raiseError(err)
+        log.error(err) *> F.raiseError(err)
       }
       else {
         val link = Link(
