@@ -2,7 +2,7 @@ package org.jinilover
 package microservice
 
 import org.scalacheck.{Arbitrary, Gen}
-import org.jinilover.microservice.LinkTypes.{LinkId, UserId}
+import org.jinilover.microservice.LinkTypes.{LinkId, LinkStatus, UserId}
 import Mock._
 
 object LinkTypeArbitraries {
@@ -22,5 +22,10 @@ object LinkTypeArbitraries {
   implicit val linkIdArbitrary: Arbitrary[LinkId] =
     Arbitrary {
       Gen.uuid.map(uuid => LinkId(uuid.toString))
+    }
+
+  implicit val linkStatusArbitaray: Arbitrary[LinkStatus] =
+    Arbitrary {
+      Gen.oneOf(LinkStatus.Pending, LinkStatus.Accepted)
     }
 }

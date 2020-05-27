@@ -111,19 +111,19 @@ class LinkServiceSpec extends Specification with ScalaCheck {
   }
 
   //TODO scalacheck
-  def getLinks = {
+  def getLinks = prop { (uid: UserId, status: Option[LinkStatus], isInitiator: Option[Boolean]) =>
     type MonadStack[A] = StateT[IO, SearchLinkCriteria, A]
 
     val dummyLog = new MockLogMonadState[MonadStack, SearchLinkCriteria]
     val mockDb = new MockDbForGetLinks[MonadStack](Nil)
     val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
 
-    val initialState = erenSearchCriteria
+    val initialState = erenSearchCriteria // any value is fine as it should be overwritten in the execution
     val (criteriaSentToDb, _) =
-      service.getLinks(mikasa, Some(LinkStatus.Pending), Some(true)) //
+      service.getLinks(uid, status, isInitiator)
         .run(initialState)
         .unsafeRunSync()
-    val expectedResult = SearchLinkCriteria(mikasa, Some(LinkStatus.Pending), Some(true))
+    val expectedResult = SearchLinkCriteria(uid, status, isInitiator)
 
     criteriaSentToDb must be_==(expectedResult)
   }
