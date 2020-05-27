@@ -46,30 +46,31 @@ class LinkServiceSpec extends Specification with ScalaCheck {
       addIO.unsafeRunSync() must be_==(dummyLinkId)
   }
 
-  //TODO scalacheck
   // to avoid using var, use MonadState for the persistence layer to maintain
   // the state of links added to the persistence
-  def handleUniqueKeyViolation = {
+  def handleUniqueKeyViolation = prop { (userIdPair: (UserId, UserId)) =>
+    val (uid1, uid2) = userIdPair
+
     type MonadStack[A] = EitherT[StateT[IO, Set[String], ?], Throwable, A]
 
     val dummyLog = new MockLogMonadStack[MonadStack, Set[String]]
     val mockDb = new MockDbViolateUniqueKey[MonadStack](dummyLinkId)
     val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
 
-    val addLink = service.addLink(mikasa, eren)
+    val addLink = service.addLink(uid1, uid2)
     val initialState = Set.empty[String] // mimic the data stored by the persistence
 
     // 1st addLink should be success because the state is empty
     val (state2, result1) = addLink.value.run(initialState).unsafeRunSync()
     val expectedResult1 = Right(dummyLinkId)
+
     // 2nd addLink of the same user Ids should fails
     val (_, result2) = addLink.value.run(state2).unsafeRunSync()
     val expectedResult2 =
-      Left(InputError(s"Link between ${mikasa.unwrap} and ${eren.unwrap} already exists"))
+      Left(InputError(s"Link between ${uid1.unwrap} and ${uid2.unwrap} already exists"))
 
-    (result1 must be_==(expectedResult1)) and
-    (result2 must be_==(expectedResult2))
-  }
+    (result1 must be_==(expectedResult1)) and (result2 must be_==(expectedResult2))
+  }.setArbitrary(unequalUserIdsPairArbitrary)
 
   def acceptLink = {
     type S = (LinkId, Instant, LinkStatus)
@@ -110,7 +111,6 @@ class LinkServiceSpec extends Specification with ScalaCheck {
     msgs must be_==(expectedMsgs)
   }
 
-  //TODO scalacheck
   def getLinks = prop { (uid: UserId, status: Option[LinkStatus], isInitiator: Option[Boolean]) =>
     type MonadStack[A] = StateT[IO, SearchLinkCriteria, A]
 
