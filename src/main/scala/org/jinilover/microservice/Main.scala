@@ -11,7 +11,7 @@ import cats.implicits._
 
 import config.ConfigLoader
 import persistence.{Doobie, LinkPersistence, Migrations}
-import link.LinkService
+import service.LinkService
 import web.{Routes, WebServer}
 import ops.OpsService
 

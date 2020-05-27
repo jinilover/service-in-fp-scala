@@ -1,6 +1,6 @@
 package org.jinilover
 package microservice
-package link
+package service
 
 import java.time.{Clock, Instant}
 

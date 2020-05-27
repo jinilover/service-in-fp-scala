@@ -10,7 +10,7 @@ import cats.{Monad, MonadError}
 import cats.mtl.MonadState
 
 import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId, linkKey}
-import link.LinkService
+import service.LinkService
 import persistence.LinkPersistence
 
 object Mock {

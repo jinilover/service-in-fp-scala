@@ -22,7 +22,7 @@ import org.specs2.Specification
 import buildInfo.BuildInfo
 import ops.OpsService
 import OpsTypes.VersionInfo
-import link.LinkService
+import service.LinkService
 import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId}
 import persistence.LinkPersistence
 import Mock._

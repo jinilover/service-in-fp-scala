@@ -20,7 +20,7 @@ import org.http4s.server.AuthMiddleware
 
 import ops.OpsService
 import LinkTypes.{LinkId, LinkStatus, UserId, taggedTypeDecoder, taggedTypeEncoder, toLinkStatus}
-import link.LinkService
+import service.LinkService
 
 trait Routes[F[_]] {
   def routes: HttpApp[F]
