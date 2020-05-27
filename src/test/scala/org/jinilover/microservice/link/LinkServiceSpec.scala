@@ -10,38 +10,40 @@ import cats.mtl.implicits._
 
 import cats.effect.IO
 
-import org.specs2.Specification
+import org.specs2.{ScalaCheck, Specification}
 import org.specs2.specification.core.SpecStructure
 
-import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria}
+import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId}
 import Mock._
+import LinkTypeArbitraries._
 
-class LinkServiceSpec extends Specification {
+class LinkServiceSpec extends Specification with ScalaCheck {
   lazy val clock = Clock.systemDefaultZone()
 
   val dummyLinkId = LinkId("value doesn't matter")
 
   override def is: SpecStructure =
     s2"""
-        LinkService
-          should not allow user link to himself $userAddToHimself
-          should handle unique key violation from db $handleUniqueKeyViolation
-          should pass correct arguments in acceptLink $acceptLink
-          should handle the value from db.remove properly $removeLink
-          should form the required search criteria in getLinks $getLinks
-          should pass the linkId to db in getLink $getLink
+      LinkService
+        should not allow user to link himself $addUser
+        should handle unique key violation from db $handleUniqueKeyViolation
+        should pass correct arguments in acceptLink $acceptLink
+        should handle the value from db.remove properly $removeLink
+        should form the required search criteria in getLinks $getLinks
+        should pass the linkId to db in getLink $getLink
     """
 
-  //TODO scalacheck
-  def userAddToHimself = {
+  def addUser = prop { (uid1: UserId, uid2: UserId) =>
     val log = Log.default.unsafeRunSync()
-    val mockDb = new DummyPersistence[IO]
+    val mockDb = new MockDbForAddLink[IO](dummyLinkId)
     val service = LinkService.default[IO](mockDb, clock, log)
+    val addIO = service.addLink(uid1, uid2)
 
-    service.addLink(eren, eren).unsafeRunSync() must
-      throwAn[Error].like { case InputError(msg) =>
-        msg must be_==("Both user ids are the same")
-      }
+    if (uid1 == uid2)
+      addIO.unsafeRunSync() must
+        throwAn[Error].like {case InputError(msg) => msg must be_==("Both user ids are the same")}
+    else
+      addIO.unsafeRunSync() must be_==(dummyLinkId)
   }
 
   //TODO scalacheck

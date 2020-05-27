@@ -66,6 +66,14 @@ object Mock {
     override def getByUniqueKey(uid1: UserId, uid2: UserId): F[Option[Link]] = ???
   }
 
+  class MockDbForAddLink[F[_]]
+    (linkId: LinkId)
+    (implicit F: Monad[F])
+    extends DummyPersistence[F] {
+
+    override def add(link: LinkTypes.Link): F[LinkId] = F.pure(linkId)
+  }
+
   class MockDbViolateUniqueKey[F[_]]
       (sampleLinkId: LinkId)
       (implicit MS: MonadState[F, Set[String]], ME: MonadError[F, Throwable])

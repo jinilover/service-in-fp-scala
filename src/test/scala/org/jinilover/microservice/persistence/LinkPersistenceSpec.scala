@@ -107,7 +107,7 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
       (link.map(_.creationDate) must beSome) and
       (link.flatMap(_.confirmDate) must beNone)
     }
-  }
+  }.setArbitrary(unequalUserIdsPairArbitrary)
 
   def addLinks = {
     List(
