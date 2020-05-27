@@ -1,11 +1,16 @@
-package org.jinilover.microservice.web
-
-import cats.effect.{ContextShift, ExitCode, IO, Timer}
-import fs2.Stream
-import org.http4s.server.blaze.BlazeServerBuilder
-import org.jinilover.microservice.ConfigTypes.WebServerConfig
+package org.jinilover
+package microservice
+package web
 
 import scala.concurrent.ExecutionContext
+
+import cats.effect.{ContextShift, ExitCode, IO, Timer}
+
+import fs2.Stream
+
+import org.http4s.server.blaze.BlazeServerBuilder
+
+import ConfigTypes.WebServerConfig
 
 trait WebServer[F[_]] {
   def start: Stream[F, ExitCode]

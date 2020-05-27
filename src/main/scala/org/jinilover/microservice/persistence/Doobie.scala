@@ -14,8 +14,8 @@ import scalaz.{@@, Tag}
 import doobie._
 import doobie.implicits.javasql._
 
-import org.jinilover.microservice.ConfigTypes.DbConfig
-import org.jinilover.microservice.LinkTypes.{LinkId, LinkStatus, UserId, toLinkStatus}
+import ConfigTypes.DbConfig
+import LinkTypes.{LinkId, LinkStatus, UserId, toLinkStatus}
 
 object Doobie {
   private def taggedMeta[A: Meta: TypeTag, T: TypeTag]: Meta[A @@ T] =

@@ -3,9 +3,11 @@ package microservice
 package persistence
 
 import cats.effect.IO
+
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.FlywayException
-import org.jinilover.microservice.ConfigTypes.DbConfig
+
+import ConfigTypes.DbConfig
 
 trait Migrations[F[_]] {
   def migrate: F[Unit]

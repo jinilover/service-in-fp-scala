@@ -1,18 +1,19 @@
-package org.jinilover.microservice
+package org.jinilover
+package microservice
 
 import java.time.Clock
 import java.util.concurrent.Executors
 
+import scala.concurrent.ExecutionContext
+
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.implicits._
 
-import org.jinilover.microservice.config.ConfigLoader
-import org.jinilover.microservice.persistence.{Doobie, LinkPersistence, Migrations}
-import org.jinilover.microservice.link.LinkService
-import org.jinilover.microservice.web.{Routes, WebServer}
-import org.jinilover.microservice.ops.OpsService
-
-import scala.concurrent.ExecutionContext
+import config.ConfigLoader
+import persistence.{Doobie, LinkPersistence, Migrations}
+import link.LinkService
+import web.{Routes, WebServer}
+import ops.OpsService
 
 object Main extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =

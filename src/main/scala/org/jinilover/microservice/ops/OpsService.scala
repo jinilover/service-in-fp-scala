@@ -1,6 +1,8 @@
-package org.jinilover.microservice.ops
+package org.jinilover
+package microservice
+package ops
 
-import org.jinilover.microservice.OpsTypes.VersionInfo
+import OpsTypes.VersionInfo
 import buildInfo.BuildInfo
 
 trait OpsService {
