@@ -4,11 +4,11 @@ package microservice
 import java.time.{Clock, Instant}
 
 import cats.effect.IO
-
 import cats.syntax.flatMap._
 import cats.syntax.apply._
-
 import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId, linkKey}
+import cats.{Monad, MonadError}
+import cats.mtl.MonadState
 import link.LinkService
 import persistence.LinkPersistence
 
@@ -59,44 +59,45 @@ object Mock {
     override def remove(id: LinkId): F[Int] = ???
   }
 
-  // To test how its user handle unique key violation
-  class MockDbViolateUniqueKey(sampleLinkId: LinkId) extends DummyPersistence[IO] {
-    var linkSet = Set.empty[String]
+  class MockDbViolateUniqueKey[F[_]]
+      (sampleLinkId: LinkId)
+      (implicit MS: MonadState[F, Set[String]], ME: MonadError[F, Throwable])
+    extends DummyPersistence[F] {
 
-    override def add(link: LinkTypes.Link): IO[LinkId] = {
+    override def add(link: LinkTypes.Link): F[LinkId] = {
       val uniqueKey = linkKey(link.initiatorId, link.targetId)
-      if (linkSet contains uniqueKey)
-        IO.raiseError(new RuntimeException("""violates unique constraint "unique_unique_key""""))
-      else
-        IO(linkSet += uniqueKey) *> IO.pure(sampleLinkId)
+      MS.get.flatMap { set =>
+        if (set contains uniqueKey)
+          ME.raiseError(new RuntimeException("""violates unique constraint "unique_unique_key""""))
+        else
+          MS.set(set + uniqueKey) *> ME.pure(sampleLinkId)
+      }
     }
   }
 
-  class MockDbForUpdateLink extends DummyPersistence[IO] {
-    var linkId: LinkId = LinkId("")
-    var confirmDate: Instant = Instant.ofEpochMilli(0L)
-    var status: LinkStatus = LinkStatus.Pending
+ class MockDbForUpdateLink[F[_]]
+    (implicit MS: MonadState[F, (LinkId, Instant, LinkStatus)])
+    extends DummyPersistence[F] {
 
-    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): IO[Unit] = {
-      IO(this.linkId = linkId) *>
-      IO(this.confirmDate = confirmDate) *>
-      IO(this.status = status)
-    }
+    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): F[Unit] =
+      MS set (linkId, confirmDate, status)
   }
 
-  class MockDbForRemoveLink extends DummyPersistence[IO] {
-    var count = 1
-    override def remove(id: LinkId): IO[Int] = {
-      // note that `count = 1` is returned even though it decremented by 1 in the end
-      IO(count) <* IO(count -= 1)
-    }
+  class MockDbForRemoveLink[F[_]: Monad]
+    (implicit MS: MonadState[F, Int])
+    extends DummyPersistence[F] {
+
+    override def remove(id: LinkId): F[Int] =
+      MS.get <* MS.modify(_ - 1)
   }
 
-  class MockDbForGetLinks(linkIds: List[LinkId]) extends DummyPersistence[IO] {
-    var searchCriteria = erenSearchCriteria
+  class MockDbForGetLinks[F[_]: Monad]
+    (linkIds: List[LinkId])
+    (implicit MS: MonadState[F, SearchLinkCriteria])
+    extends DummyPersistence[F] {
 
-    override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): IO[List[LinkId]] =
-      IO(searchCriteria = srchCriteria) *> IO(linkIds)
+    override def getLinks(srchCriteria: SearchLinkCriteria): F[List[LinkId]] =
+      MS.set(srchCriteria) *> MS.monad.pure(linkIds)
   }
 
   class MockDbForGetLink(cache: Map[LinkId, Link]) extends DummyPersistence[IO] {
@@ -118,12 +119,50 @@ object Mock {
     override def getLinks(userId: UserId, linkStatusOpt: Option[LinkStatus], isInitiatorOps: Option[Boolean]): F[List[LinkId]] = ???
   }
 
-  class MockServiceForAcceptLink extends DummyService[IO] {
-    var linkId = LinkId("")
+  class MockServiceForAcceptLink[F[_]]
+    (implicit MS: MonadState[F, LinkId])
+    extends DummyService[F] {
 
-    override def acceptLink(id: LinkId): IO[Unit] =
-      IO(this.linkId = id)
+    override def acceptLink(id: LinkId): F[Unit] =
+      MS.set(id)
   }
 
+  class MockServiceForSuccessAddLink[F[_]: Monad]
+    (linkId: LinkId)
+    (implicit MS: MonadState[F, (UserId, UserId)])
+    extends DummyService[F] {
 
+    override def addLink(initiatorId: UserId, targetId: UserId): F[LinkId] =
+      MS.set((initiatorId, targetId)) *> MS.monad.pure(linkId)
+  }
+
+  class MockServiceForUniqueKeyViolation[F[_]]
+    (implicit F: MonadError[F, Throwable])
+    extends DummyService[F] {
+
+    override def addLink(initiatorId: UserId, targetId: UserId): F[LinkId] =
+      F.raiseError(
+        InputError(s"Link between ${initiatorId.unwrap} and ${targetId.unwrap} already exists")
+      )
+  }
+
+  // mock log
+  class MockLogMonadStack[F[_], S]
+    (implicit MS: MonadState[F, S]
+     , ME: MonadError[F, Throwable])
+      extends Log[F] {
+    override def error(err: Error): F[Unit] = ME.pure(())
+    override def warn(msg: String): F[Unit] = ME.pure(())
+    override def info(msg: String): F[Unit] = ME.pure(())
+    override def debug(msg: String): F[Unit] = ME.pure(())
+  }
+
+  class MockLogMonadState[F[_], S]
+    (implicit MS: MonadState[F, S])
+      extends Log[F] {
+    override def error(err: Error): F[Unit] = MS.monad.pure(())
+    override def warn(msg: String): F[Unit] = MS.monad.pure(())
+    override def info(msg: String): F[Unit] = MS.monad.pure(())
+    override def debug(msg: String): F[Unit] = MS.monad.pure(())
+  }
 }

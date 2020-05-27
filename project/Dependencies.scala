@@ -18,6 +18,7 @@ object Dependencies {
     dep("io.monix", "3.2.1", "monix"),
     dep("org.scalaz", "7.2.25", "scalaz-core"),
     dep("com.github.pureconfig", "0.12.3", "pureconfig"),
+    dep("org.typelevel", "0.7.1", "cats-mtl-core"),
     Seq("ch.qos.logback"  % "logback-classic" % "1.2.3"),
     Seq("org.flywaydb"    % "flyway-core"     % "5.0.7")
   ).flatten

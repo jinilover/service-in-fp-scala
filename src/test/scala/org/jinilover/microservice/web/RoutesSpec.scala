@@ -4,13 +4,10 @@ package web
 
 import java.time.Clock
 
-import cats.instances.list._
-import cats.instances.either._
-import cats.syntax.traverse._
-import cats.syntax.apply._
-import cats.syntax.flatMap._
-
-import cats.effect.IO
+import cats.data.StateT
+import cats.implicits._
+import cats.mtl.implicits._
+import cats.effect.{IO, Sync}
 
 import fs2.Stream
 
@@ -19,16 +16,15 @@ import io.circe.Error
 
 import org.http4s._
 import org.http4s.implicits._
+
 import org.specs2.Specification
 
 import buildInfo.BuildInfo
-
 import ops.OpsService
 import OpsTypes.VersionInfo
 import link.LinkService
-import LinkTypes.{Link, LinkId, LinkStatus}
+import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId}
 import persistence.LinkPersistence
-
 import Mock._
 
 class RoutesSpec extends Specification {
@@ -40,16 +36,16 @@ class RoutesSpec extends Specification {
         Get   / $welcomeMsgOk
         Get   /version_info $versionInfoOk
         POST  /users/userId/links return bad request when user attempts to add himself $userAddToHimself
-        POST  /users/userId/links return bad request when user adds the same link twice $addLink
+        POST  /users/userId/links return ok status with linkid when it is success $addLink
+        POST  /users/userId/links return bad request caused by unique key violation $handleUniqueKeyViolation
         GET   /users/userId/links extract the required query parameter $getLinksWithQueryParams
         GET   /links/linkId for existing or non-exist link $getLink
         PUT   /links/linkId for accepting a link $acceptLink
-        DELETE /links/linkId unauthorised $deleteLinkWithoutToken
-        DELETE /links/linkId attacked token $deleteLinkWithToken
+        DELETE /links/linkId authorisation check and return message accordingly $deleteLink
     """
 
   def welcomeMsgOk = {
-    val routes = (createRoutes compose createLinkService)(new DummyPersistence)
+    val routes = createRoutes(createLinkService(new DummyPersistence))
 
     val expected = List(""""Welcome to REST servce in functional Scala!"""")
     val req = Request[IO](Method.GET, uri"/")
@@ -61,7 +57,7 @@ class RoutesSpec extends Specification {
   }
 
   def versionInfoOk = {
-    val routes = (createRoutes compose createLinkService)(new DummyPersistence)
+    val routes = createRoutes(createLinkService(new DummyPersistence))
 
     val expected = List(Right(VersionInfo(
         name = BuildInfo.name
@@ -82,14 +78,14 @@ class RoutesSpec extends Specification {
   }
 
   def userAddToHimself = {
-    val routes = (createRoutes compose createLinkService)(new DummyPersistence)
+    val routes = createRoutes(createLinkService(new DummyPersistence))
 
     val expected = List(""""Both user ids are the same"""")
-    val req =
-      Request[IO](Method.POST,
-        uri"/users/eren/links",
-        body = createEntityBody(""""eren"""")
-      )
+    val req = Request[IO](
+      Method.POST
+    ,uri"/users/eren/links"
+    , body = createEntityBody(""""eren"""")
+    )
     val res = routes.routes.run(req).unsafeRunSync()
     val bodyText = getBodyText(res)
 
@@ -98,34 +94,50 @@ class RoutesSpec extends Specification {
   }
 
   def addLink = {
-    val routes = (createRoutes compose createLinkService)(new MockDbViolateUniqueKey(dummyLinkId))
+    type MonadStack[A] = StateT[IO, (UserId, UserId), A]
 
-    val req =
-      Request[IO](
-        Method.POST,
-        uri"/users/eren/links",
-        body = createEntityBody(""""mikasa"""")
-      )
-    val okExpected = List(s""""${dummyLinkId.unwrap}"""")
-    val okRes = routes.routes.run(req).unsafeRunSync()
-    val okMsg = getBodyText(okRes)
+    val mockService = new MockServiceForSuccessAddLink[MonadStack](dummyLinkId)
+    val routes = createRoutes(mockService)
+    val req = Request[MonadStack](
+      Method.POST
+    , uri"/users/eren/links"
+    , body = Stream.emits(""""mikasa"""".getBytes).evalMap{ x => StateT(s => IO(s, x)) }
+    )
 
-    val badExpected = List(s""""Link between eren and mikasa already exists"""")
-    val badRes = routes.routes.run(req).unsafeRunSync()
-    val badMsg = getBodyText(badRes)
+    val initialState = (armin, annie)
+    val (userIdsSentToService, res) = routes.routes.run(req).run(initialState).unsafeRunSync
+    val expectedState = (eren, mikasa)
 
-    (okRes.status must be_==(Status.Ok)) and
-      (okMsg must be_==(okExpected)) and
-      (badRes.status must be_==(Status.BadRequest)) and
-      (badMsg must be_==(badExpected))
+    (res.status must be_==(Status.Ok)) and
+      (userIdsSentToService must be_==(expectedState))
   }
 
-  def getLinksWithQueryParams = {
-    val createReq: Uri => Request[IO] = Request[IO](Method.GET, _)
+  def handleUniqueKeyViolation = {
+    val mockService = new MockServiceForUniqueKeyViolation[IO]
+    val routes = createRoutes(mockService)
+    val req = Request[IO](
+      Method.POST
+    ,uri"/users/eren/links"
+    , body = createEntityBody(""""mikasa"""")
+    )
+    val res = routes.routes.run(req).unsafeRunSync()
+    val bodyText = getBodyText(res)
+    val expected = List(""""Link between eren and mikasa already exists"""")
 
-    val mockDb = new MockDbForGetLinks(Nil)
-    val linkService = createLinkService(mockDb)
-    val routes = createRoutes(linkService)
+    (res.status must be_==(Status.BadRequest)) and
+      (bodyText must be_==(expected))
+  }
+
+  // Test is similar to `LinkServiceSpec.getLinks`, reuse MockDbForGetLinks
+  def getLinksWithQueryParams = {
+    type MonadStack[A] = StateT[IO, SearchLinkCriteria, A]
+
+    val createReq: Uri => Request[MonadStack] = Request[MonadStack](Method.GET, _)
+
+    val dummyLog = new MockLogMonadState[MonadStack, SearchLinkCriteria]
+    val mockDb = new MockDbForGetLinks[MonadStack](Nil)
+    val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
+    val routes = createRoutes(service)
 
     val reqs = List(
       createReq(uri"/users/eren/links")
@@ -137,18 +149,21 @@ class RoutesSpec extends Specification {
     , createReq(uri"/users/eren/links?status=Pending&is_initiator=true")
     )
 
-    val srchCriterias =
-      reqs.traverse { req =>
-        routes.routes.run(req) *> IO(mockDb.searchCriteria)
-      }.unsafeRunSync()
+    val criteriasSentToDb =
+      reqs.traverse { req => routes.routes.run(req).run(erenSearchCriteria)}
+        .map { list => list.map(_._1) }
+        .unsafeRunSync()
+    val expectedResult = List[SearchLinkCriteria => SearchLinkCriteria](
+      identity
+    , _.copy(linkStatus = Some(LinkStatus.Pending))
+    , _.copy(linkStatus = Some(LinkStatus.Accepted))
+    , _.copy(isInitiator = Some(true))
+    , _.copy(isInitiator = Some(false))
+    , _.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Accepted))
+    , _.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Pending))
+    ).map(f => f(erenSearchCriteria))
 
-    (srchCriterias(0) must be_==(erenSearchCriteria)) and
-      (srchCriterias(1) must be_==(erenSearchCriteria.copy(linkStatus = Some(LinkStatus.Pending)))) and
-      (srchCriterias(2) must be_==(erenSearchCriteria.copy(linkStatus = Some(LinkStatus.Accepted)))) and
-      (srchCriterias(3) must be_==(erenSearchCriteria.copy(isInitiator = Some(true)))) and
-      (srchCriterias(4) must be_==(erenSearchCriteria.copy(isInitiator = Some(false)))) and
-      (srchCriterias(5) must be_==(erenSearchCriteria.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Accepted)))) and
-      (srchCriterias(6) must be_==(erenSearchCriteria.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Pending))))
+    criteriasSentToDb must be_==(expectedResult)
   }
 
   def getLink = {
@@ -157,11 +172,11 @@ class RoutesSpec extends Specification {
     val existLinkId = LinkId("exist_linkid")
     val existLink = mika_add_eren.copy(id = Some(existLinkId))
     val dbCache: Map[LinkId, Link] = Map(existLinkId -> existLink)
-    val routes = (createRoutes compose createLinkService)(new MockDbForGetLink(dbCache))
+    val routes = createRoutes(createLinkService(new MockDbForGetLink(dbCache)))
 
     type DecodeResult[A] = Either[Error, A]
 
-    val decodeResults: List[DecodeResult[List[Link]]] =
+    val decodeResults =
       List(
         uri"/links/exist_linkid"     // should return mika_add_eren
       , uri"/links/non_exist_linkid" // should not return any link
@@ -173,54 +188,59 @@ class RoutesSpec extends Specification {
         } yield multiStrs
                 .traverse{ parse(_).flatMap(_.as[List[Link]]) }
                 .map(_.flatten)
-      }
+      }.map(_.sequence)
       .unsafeRunSync()
+    val expectedResult = Right(List(List(existLink), Nil))
 
-    (decodeResults(0) must be_==(Right(List(existLink)))) and
-      (decodeResults(1) must be_==(Right(Nil)))
+    decodeResults must be_==(expectedResult)
   }
 
   def acceptLink = {
-    val mockService = new MockServiceForAcceptLink
+    type MonadStack[A] = StateT[IO, LinkId, A]
+
+    val mockService = new MockServiceForAcceptLink[MonadStack]
     val routes = createRoutes(mockService)
 
-    val req = Request[IO](Method.PUT, uri"/links/linkid_be_accepted")
-    routes.routes.run(req).unsafeRunSync()
+    val req = Request[MonadStack](Method.PUT, uri"/links/linkid_be_accepted")
+    val linkIdSentToService = routes.routes.run(req).run(LinkId("")).map(_._1).unsafeRunSync()
 
-    mockService.linkId.unwrap must be_==("linkid_be_accepted")
+    linkIdSentToService.unwrap must be_==("linkid_be_accepted")
   }
 
-  def deleteLinkWithoutToken = {
-    val routes = (createRoutes compose createLinkService)(new MockDbForRemoveLink)
-    val req = Request[IO](
-      Method.DELETE,
-      uri"/links/any_id_is_ok"
-    )
-    val res = routes.routes.run(req).unsafeRunSync()
+  // Test is similar to `LinkServiceSpec.removeLink`, reuse MockDbForRemoveLink
+  def deleteLink = {
+    type MonadStack[A] = StateT[IO, Int, A]
 
-    res.status must be_==(Status.Unauthorized)
-  }
+    val dummyLog = new MockLogMonadState[MonadStack, Int]
+    val mockDb = new MockDbForRemoveLink[MonadStack]
+    val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
+    val routes = createRoutes(service)
 
-  def deleteLinkWithToken = {
-    val routes = (createRoutes compose createLinkService)(new MockDbForRemoveLink)
+    // test unauthorised req
+    val unauthReq = Request[MonadStack](Method.DELETE,uri"/links/any_id_is_ok")
+    val (_, unauthRes) = routes.routes.run(unauthReq).run(1).unsafeRunSync()
 
-    val authHeader = Header(name = "Authorization", value = "Bearer eren")
-    val req = Request[IO](
+    // test authorised req
+    val authReq = Request[MonadStack](
       Method.DELETE,
       uri"/links/any_id_is_ok",
-      headers = Headers.of(authHeader)
+      headers = Headers.of(Header(name = "Authorization", value = "Bearer eren"))
+    )
+    // similar to `LinkServiceSpec.remove`, run twice to make sure different messages are returned
+    val authResult: List[String] =
+      List.fill(2)(authReq).traverse { req =>
+        routes.routes.run(req) >>= (res => res.bodyAsText.compile.toList)
+      }.map(_.flatten)
+      .run(1) // mimic there is 1 link to be deleted in the beginning
+      .map(_._2)
+      .unsafeRunSync()
+    val expectedAuthResult = List(
+      """"Linkid any_id_is_ok removed successfully""""
+    , """"No need to remove non-exist linkid any_id_is_ok""""
     )
 
-    // run twice, where each time should return different messages
-    val msgs: List[String] =
-      List.fill(2)(req)
-        .traverse { req =>
-          routes.routes.run(req) >>= (_.bodyAsText.compile.toList)
-        }.map(_.flatten)
-        .unsafeRunSync()
-
-    (msgs(0) must be_==(""""Linkid any_id_is_ok removed successfully"""")) and
-      (msgs(1) must be_==(""""No need to remove non-exist linkid any_id_is_ok""""))
+    (unauthRes.status must be_==(Status.Unauthorized)) and
+      (authResult must be_==(expectedAuthResult))
   }
 
   private def createEntityBody(s: String): EntityBody[IO] =
@@ -234,6 +254,7 @@ class RoutesSpec extends Specification {
     LinkService.default(_, clock, log)
   }
 
-  private val createRoutes: LinkService[IO] => Routes[IO] =
-    Routes.default[IO](OpsService.default, _)
+  private def createRoutes[F[_]: Sync](service: LinkService[F]): Routes[F] =
+    Routes.default[F](OpsService.default, service)
+
 }
