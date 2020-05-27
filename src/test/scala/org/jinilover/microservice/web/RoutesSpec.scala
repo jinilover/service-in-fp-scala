@@ -17,7 +17,7 @@ import io.circe.Error
 import org.http4s._
 import org.http4s.implicits._
 
-import org.specs2.Specification
+import org.specs2.{ScalaCheck, Specification}
 
 import buildInfo.BuildInfo
 import ops.OpsService
@@ -25,12 +25,14 @@ import OpsTypes.VersionInfo
 import service.LinkService
 import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId}
 import persistence.LinkPersistence
+
 import Mock._
+import LinkTypeArbitraries._
 
 /**
   * Tests to ensure `Routes` extract the request and sent to service correctly
   */
-class RoutesSpec extends Specification {
+class RoutesSpec extends Specification with ScalaCheck {
   lazy val clock = Clock.systemDefaultZone()
 
   override def is =
@@ -39,7 +41,7 @@ class RoutesSpec extends Specification {
         Get   / $welcomeMsgOk
         Get   /version_info $versionInfoOk
         POST  /users/userId/links return bad request when user attempts to add himself $userAddToHimself
-        POST  /users/userId/links return ok status with linkid when it is success $addLink
+        POST  /users/userId/links extracts and passes correct userIds to service $addLinkBEREMOVED
         POST  /users/userId/links return bad request caused by unique key violation $handleUniqueKeyViolation
         GET   /users/userId/links extract the required query parameter $getLinksWithQueryParams
         GET   /links/linkId for existing or non-exist link $getLink
@@ -80,25 +82,30 @@ class RoutesSpec extends Specification {
       (bodyText.map(s => parse(s).flatMap(_.as[VersionInfo])) must be_==(expected))
   }
 
-  // scalacheck
-  def userAddToHimself = {
-    val routes = createRoutes(createLinkService(new DummyPersistence))
+  // make sure Routes return different response status
+  // if user tries to add himself
+  def userAddToHimself = prop { (uid1: UserId, uid2: UserId) =>
+    val mockDb = new MockDbForAddLink[IO](dummyLinkId)
+    val routes = createRoutes(createLinkService(mockDb))
 
-    val expected = List(""""Both user ids are the same"""")
     val req = Request[IO](
       Method.POST
-    ,uri"/users/eren/links"
-    , body = createEntityBody(""""eren"""")
+    , Uri().withPath(s"/users/${uid1}/links")
+    , body = createEntityBody(s""""${uid2}"""")
     )
     val res = routes.routes.run(req).unsafeRunSync()
     val bodyText = getBodyText(res)
 
-    (res.status must be_==(Status.BadRequest)) and
-      (bodyText must be_==(expected))
+    if (uid1 == uid2)
+      (res.status must be_==(Status.BadRequest)) and
+        (bodyText must be_==(List(""""Both user ids are the same"""")))
+    else
+      (res.status must be_==(Status.Ok)) and
+        (bodyText must be_==(List(s""""${dummyLinkId.unwrap}"""")))
   }
 
   // test to ensure user ids are extracted from request and sent to service correctly
-  def addLink = {
+  def addLinkBEREMOVED = {
     type MonadStack[A] = StateT[IO, (UserId, UserId), A]
 
     val mockService = new MockServiceForSuccessAddLink[MonadStack](dummyLinkId)
