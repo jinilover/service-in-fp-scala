@@ -209,16 +209,17 @@ class RoutesSpec extends Specification with ScalaCheck {
     decodeResults must be_==(expectedResult)
   }
 
-  def acceptLink = {
+  def acceptLink = prop { (linkId: LinkId) =>
     type MonadStack[A] = StateT[IO, LinkId, A]
 
     val mockService = new MockServiceForAcceptLink[MonadStack]
     val routes = createRoutes(mockService)
 
-    val req = Request[MonadStack](Method.PUT, uri"/links/linkid_be_accepted")
-    val linkIdSentToService = routes.routes.run(req).run(LinkId("")).map(_._1).unsafeRunSync()
+    val req = Request[MonadStack](Method.PUT, Uri().withPath(s"/links/${linkId.unwrap}"))
+    val initialState = LinkId("") // any id is ok as it should be overwritten by the execution
+    val linkIdSentToService = routes.routes.run(req).run(initialState).map(_._1).unsafeRunSync()
 
-    linkIdSentToService.unwrap must be_==("linkid_be_accepted")
+    linkIdSentToService must be_==(linkId)
   }
 
   // Test is similar to `LinkServiceSpec.removeLink`, reuse MockDbForRemoveLink
