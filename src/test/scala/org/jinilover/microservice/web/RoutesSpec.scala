@@ -41,7 +41,7 @@ class RoutesSpec extends Specification with ScalaCheck {
         Get   / $welcomeMsgOk
         Get   /version_info $versionInfoOk
         POST  /users/userId/links return bad request when user attempts to add himself $userAddToHimself
-        POST  /users/userId/links extracts and passes correct userIds to service $addLinkBEREMOVED
+        POST  /users/userId/links extracts and passes correct userIds to service $addLink
         POST  /users/userId/links return bad request caused by unique key violation $handleUniqueKeyViolation
         GET   /users/userId/links extract the required query parameter $getLinksWithQueryParams
         GET   /links/linkId for existing or non-exist link $getLink
@@ -105,24 +105,24 @@ class RoutesSpec extends Specification with ScalaCheck {
   }
 
   // test to ensure user ids are extracted from request and sent to service correctly
-  def addLinkBEREMOVED = {
+  def addLink = prop { (uidPair: (UserId, UserId)) =>
+    val (uid1, uid2) = uidPair
+
     type MonadStack[A] = StateT[IO, (UserId, UserId), A]
 
     val mockService = new MockServiceForSuccessAddLink[MonadStack](dummyLinkId)
     val routes = createRoutes(mockService)
     val req = Request[MonadStack](
       Method.POST
-    , uri"/users/eren/links"
-    , body = Stream.emits(""""mikasa"""".getBytes).evalMap{ x => StateT(s => IO(s, x)) }
+    , Uri().withPath(s"/users/${uid1}/links")
+    , body = Stream.emits(s""""${uid2}"""".getBytes).evalMap{ x => StateT(s => IO(s, x)) }
     )
 
-    val initialState = (armin, annie)
+    val initialState = (armin, annie) // any userid is ok as the state should be overwritten by execution
     val (userIds, res) = routes.routes.run(req).run(initialState).unsafeRunSync
-    val expectedState = (eren, mikasa)
 
-    (res.status must be_==(Status.Ok)) and
-      (userIds must be_==(expectedState))
-  }
+    (res.status must be_==(Status.Ok)) and (userIds must be_==(uidPair))
+  }.setArbitrary(unequalUserIdsPairArbitrary)
 
   // use a mock service that only throw unique key violation to ensure
   // `Routes` handles it correctly
