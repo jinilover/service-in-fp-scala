@@ -2,7 +2,7 @@ package org.jinilover
 package microservice
 package persistence
 
-import java.time.{Instant}
+import java.time.Instant
 import java.util.UUID
 
 import cats.effect.IO
@@ -11,15 +11,16 @@ import cats.syntax.flatMap._
 import doobie.Transactor
 import doobie.syntax.connectionio._
 import doobie.syntax.string._
-import doobie.Fragments.{whereAndOpt}
+import doobie.Fragments.whereAndOpt
 
-import LinkTypes.{LinkId, Link, LinkStatus, SearchLinkCriteria, linkKey}
+import LinkTypes.{LinkId, Link, LinkStatus, SearchLinkCriteria, UserId, linkKey}
 import Doobie._
 
 trait LinkPersistence[F[_]] {
   def add(link: Link): F[LinkId]
   def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): F[Unit]
   def get(id: LinkId): F[Option[Link]]
+  def getByUniqueKey(uid1: UserId, uid2: UserId): F[Option[Link]]
   def getLinks(srchCriteria: SearchLinkCriteria): F[List[LinkId]]
   def remove(id: LinkId): F[Int]
 }
@@ -45,6 +46,15 @@ object LinkPersistence {
             SELECT id, initiator_id, target_id, status, creation_date, confirm_date, unique_key
             FROM links
             WHERE id = $id
+        """.query[Link].option.transact(xa)
+    }
+
+    override def getByUniqueKey(uid1: UserId, uid2: UserId): IO[Option[Link]] = {
+      val uniqueKey = linkKey(uid1, uid2)
+      sql"""
+            SELECT id, initiator_id, target_id, status, creation_date, confirm_date, unique_key
+            FROM links
+            WHERE unique_key = $uniqueKey
         """.query[Link].option.transact(xa)
     }
 

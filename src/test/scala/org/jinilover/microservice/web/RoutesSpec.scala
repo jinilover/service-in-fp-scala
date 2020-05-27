@@ -27,6 +27,9 @@ import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId}
 import persistence.LinkPersistence
 import Mock._
 
+/**
+  * Tests to ensure `Routes` extract the request and sent to service correctly
+  */
 class RoutesSpec extends Specification {
   lazy val clock = Clock.systemDefaultZone()
 
@@ -77,6 +80,7 @@ class RoutesSpec extends Specification {
       (bodyText.map(s => parse(s).flatMap(_.as[VersionInfo])) must be_==(expected))
   }
 
+  // scalacheck
   def userAddToHimself = {
     val routes = createRoutes(createLinkService(new DummyPersistence))
 
@@ -93,6 +97,7 @@ class RoutesSpec extends Specification {
       (bodyText must be_==(expected))
   }
 
+  // test to ensure user ids are extracted from request and sent to service correctly
   def addLink = {
     type MonadStack[A] = StateT[IO, (UserId, UserId), A]
 
@@ -105,13 +110,15 @@ class RoutesSpec extends Specification {
     )
 
     val initialState = (armin, annie)
-    val (userIdsSentToService, res) = routes.routes.run(req).run(initialState).unsafeRunSync
+    val (userIds, res) = routes.routes.run(req).run(initialState).unsafeRunSync
     val expectedState = (eren, mikasa)
 
     (res.status must be_==(Status.Ok)) and
-      (userIdsSentToService must be_==(expectedState))
+      (userIds must be_==(expectedState))
   }
 
+  // use a mock service that only throw unique key violation to ensure
+  // `Routes` handles it correctly
   def handleUniqueKeyViolation = {
     val mockService = new MockServiceForUniqueKeyViolation[IO]
     val routes = createRoutes(mockService)

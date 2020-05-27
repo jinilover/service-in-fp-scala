@@ -6,6 +6,7 @@ import java.time.Clock
 
 import cats.instances.list._
 import cats.syntax.traverse._
+import cats.syntax.flatMap._
 
 import cats.effect.IO
 
@@ -15,15 +16,17 @@ import doobie.util.update.Update0
 
 import org.postgresql.util.PSQLException
 
-import org.specs2.Specification
+import org.specs2.{ScalaCheck, Specification}
 import org.specs2.specification.core.SpecStructure
 import org.specs2.specification.BeforeEach
 
-import LinkTypes.LinkStatus
-import Mock._
+import LinkTypes.{LinkStatus, UserId}
 import config.ConfigLoader
 
-class LinkPersistenceSpec extends Specification with BeforeEach {
+import Mock._
+import LinkTypeArbitraries._
+
+class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach {
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
 
   val dbConfig = ConfigLoader.default.load.map(_.db).unsafeRunSync()
@@ -55,10 +58,8 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
 
     s2"""
       LinkPersistence
-        should add 1 link and retrieve the link correctly $addLink
+        should add 1 link and handle uniqueKey violation or retrieve the link correctly $addLink
         ${step(reasonOfStep)}
-        should raise error of unique key violation $violateUniqueKey
-        ${step{reasonOfStep}}
         should add links and retrieve the links accordingly $addLinks
         ${step{reasonOfStep}}
         should update 1 link and retrieve the link correctly $updateLink
@@ -69,37 +70,43 @@ class LinkPersistenceSpec extends Specification with BeforeEach {
     """
   }
 
-  def addLink = {
-    val linkId = persistence.add(mika_add_eren).unsafeRunSync()
+  def addLink = prop { (uidPair: (UserId, UserId)) =>
+    val (uid1, uid2) = uidPair
 
-    val linkIdsFromDb = persistence.getLinks(erenSearchCriteria).unsafeRunSync()
+    val linkAlreadyExists = {
+      for {
+        find1 <- persistence.getByUniqueKey(uid1, uid2)
+        find2 <- persistence.getByUniqueKey(uid2, uid1)
+      } yield List(find1, find2).flatten
+    }.map(_.nonEmpty)
+      .unsafeRunSync()
 
-    val linkFromDb = persistence.get(linkId).unsafeRunSync()
+    val addIO = persistence.add(createNewLink(uid1, uid2))
 
-    (linkIdsFromDb must be_==(List(linkId))) and
-      (linkFromDb.flatMap(_.id) must beSome) and
-      (linkFromDb.map(_.initiatorId) must beSome(mikasa)) and
-      (linkFromDb.map(_.targetId) must beSome(eren)) and
-      (linkFromDb.map(_.status) must beSome(LinkStatus.Pending)) and
-      (linkFromDb.flatMap(_.uniqueKey) must beSome("eren_mikasa")) and
-      (linkFromDb.map(_.creationDate) must beSome(mika_add_eren.creationDate)) and
-      (linkFromDb.flatMap(_.confirmDate) must beNone)
-  }
-
-  def violateUniqueKey = {
-    persistence.add(mika_add_eren).unsafeRunSync()
-
-    lazy val expectedException =
-      throwAn[PSQLException].like { case e =>
+    if (linkAlreadyExists)
+      addIO.unsafeRunSync() must throwAn[PSQLException].like { case e =>
         e.getMessage.toLowerCase must contain("""violates unique constraint "unique_unique_key"""")
       }
+    else {
+      val linkId = addIO.unsafeRunSync()
+      val link = persistence.get(linkId).unsafeRunSync()
+      val initiatorId = link.map(_.initiatorId)
+      val targetId = link.map(_.targetId)
+      val expectedUniqueKey = {
+        val List(s1, s2) = List(uid1, uid2).map(_.unwrap)
+        if (s1 < s2) s"${s1}_${s2}" else s"${s2}_${s1}"
+      }
 
-    // it should violate unique key constraint in adding the same link
-    // or even the user ids swapped
-    val eren_add_mika = mika_add_eren.copy(initiatorId = eren, targetId = mikasa)
-
-    (persistence.add(eren_add_mika).unsafeRunSync() must expectedException) and
-      (persistence.add(mika_add_eren).unsafeRunSync() must expectedException)
+      (link.flatMap(_.id) must beSome(linkId)) and
+      (
+        ((initiatorId must beSome(uid1)) and (targetId must beSome(uid2))) or
+        ((initiatorId must beSome(uid2)) and (targetId must beSome(uid1)))
+      ) and
+      (link.map(_.status) must beSome(LinkStatus.Pending)) and
+      (link.flatMap(_.uniqueKey) must beSome(expectedUniqueKey)) and
+      (link.map(_.creationDate) must beSome) and
+      (link.flatMap(_.confirmDate) must beNone)
+    }
   }
 
   def addLinks = {

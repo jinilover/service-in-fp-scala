@@ -25,8 +25,11 @@ object Dependencies {
 
   lazy val test = Seq(
     testDep("org.tpolecat", doobieV, "doobie-specs2"),
-    testDep("org.specs2", "4.9.3","specs2-core"),
-    testDep("io.circe", circeV,"circe-parser")
+    testDep("org.specs2", "4.9.3",
+      "specs2-core",
+      "specs2-scalacheck"),
+    testDep("io.circe", circeV,"circe-parser"),
+    testDep("org.scalacheck", "1.14.3", "scalacheck")
   ).flatten
 
   def testDep(group: String, version: String, pkgs: String*) =

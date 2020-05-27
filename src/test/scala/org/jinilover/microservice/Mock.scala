@@ -6,9 +6,10 @@ import java.time.{Clock, Instant}
 import cats.effect.IO
 import cats.syntax.flatMap._
 import cats.syntax.apply._
-import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId, linkKey}
 import cats.{Monad, MonadError}
 import cats.mtl.MonadState
+
+import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId, linkKey}
 import link.LinkService
 import persistence.LinkPersistence
 
@@ -16,8 +17,9 @@ object Mock {
   val clock = Clock.systemDefaultZone()
 
   // sample user id
-  val List(mikasa, eren, armin, annie, reiner, bert, levi, erwin) =
-    List("mikasa", "eren", "armin", "annie", "reiner", "bert", "levi", "erwin").map(UserId.apply)
+  val sampleUserIds@List(mikasa, eren, armin, annie, reiner, bert, levi, erwin) =
+    List("mikasa", "eren", "armin", "annie", "reiner", "bert", "levi", "erwin")
+      .map(UserId.apply)
 
   // sample links
   val List(
@@ -34,13 +36,16 @@ object Mock {
       , (eren, armin)
       , (eren, annie)
       , (eren, levi)
-      , (eren, erwin) )
-      .map { case (initiator, target) =>
-        Link(initiatorId = initiator
-          , targetId = target
-          , status = LinkStatus.Pending
-          , creationDate = clock.instant)
-      }
+      , (eren, erwin)
+    ).map(createNewLink)
+
+  lazy val createNewLink: ((UserId, UserId)) => Link = {
+    case (initiatorId, targetId) =>
+      Link(initiatorId = initiatorId
+        , targetId = targetId
+        , status = LinkStatus.Pending
+        , creationDate = clock.instant)
+  }
 
   val erenSearchCriteria = SearchLinkCriteria(userId = eren)
 
@@ -57,6 +62,8 @@ object Mock {
     override def getLinks(srchCriteria: LinkTypes.SearchLinkCriteria): F[List[LinkId]] = ???
 
     override def remove(id: LinkId): F[Int] = ???
+
+    override def getByUniqueKey(uid1: UserId, uid2: UserId): F[Option[Link]] = ???
   }
 
   class MockDbViolateUniqueKey[F[_]]

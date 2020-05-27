@@ -32,6 +32,7 @@ class LinkServiceSpec extends Specification {
           should pass the linkId to db in getLink $getLink
     """
 
+  //TODO scalacheck
   def userAddToHimself = {
     val log = Log.default.unsafeRunSync()
     val mockDb = new DummyPersistence[IO]
@@ -43,6 +44,7 @@ class LinkServiceSpec extends Specification {
       }
   }
 
+  //TODO scalacheck
   // to avoid using var, use MonadState for the persistence layer to maintain
   // the state of links added to the persistence
   def handleUniqueKeyViolation = {
@@ -77,12 +79,13 @@ class LinkServiceSpec extends Specification {
     // mimic the original cache maintained by mockDb
     val initialState = (LinkId(""), Instant.ofEpochMilli(0L), LinkStatus.Pending)
 
-    val ((linkIdSentToDb, timeSentToDb, statusSentToBe), _) =
+    // test to ensure linkId, time, status sent to mockDb correctly
+    val ((linkId, time, status), _) =
       service.acceptLink(dummyLinkId).run(initialState).unsafeRunSync()
 
-    (linkIdSentToDb must be_==(dummyLinkId)) and
-      (Math.abs(timeSentToDb.getEpochSecond - clock.instant.getEpochSecond) must be ~(1L +/- 1L)) and
-      (statusSentToBe must be_==(LinkStatus.Accepted))
+    (linkId must be_==(dummyLinkId)) and
+      (Math.abs(time.getEpochSecond - clock.instant.getEpochSecond) must be ~(1L +/- 1L)) and
+      (status must be_==(LinkStatus.Accepted))
   }
 
   def removeLink = {
@@ -97,11 +100,15 @@ class LinkServiceSpec extends Specification {
     // in the second run, mockDb return `state = 0`
     val (_, msgs) =
       List.fill(2)(dummyLinkId).traverse(service.removeLink).run(1).unsafeRunSync()
+    val expectedMsgs = List(
+      s"Linkid ${dummyLinkId.unwrap} removed successfully"
+    , s"No need to remove non-exist linkid ${dummyLinkId.unwrap}"
+    )
 
-    (msgs(0) must be_==(s"Linkid ${dummyLinkId.unwrap} removed successfully")) and
-      (msgs(1) must be_==(s"No need to remove non-exist linkid ${dummyLinkId.unwrap}"))
+    msgs must be_==(expectedMsgs)
   }
 
+  //TODO scalacheck
   def getLinks = {
     type MonadStack[A] = StateT[IO, SearchLinkCriteria, A]
 
@@ -111,7 +118,7 @@ class LinkServiceSpec extends Specification {
 
     val initialState = erenSearchCriteria
     val (criteriaSentToDb, _) =
-      service.getLinks(mikasa, Some(LinkStatus.Pending), Some(true))
+      service.getLinks(mikasa, Some(LinkStatus.Pending), Some(true)) //
         .run(initialState)
         .unsafeRunSync()
     val expectedResult = SearchLinkCriteria(mikasa, Some(LinkStatus.Pending), Some(true))
