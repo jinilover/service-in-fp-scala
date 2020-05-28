@@ -22,18 +22,18 @@ import ops.OpsService
 import LinkTypes.{LinkId, LinkStatus, UserId, taggedTypeDecoder, taggedTypeEncoder, toLinkStatus}
 import service.LinkService
 
-trait Routes[F[_]] {
+trait WebApi[F[_]] {
   def routes: HttpApp[F]
 }
 
-object Routes {
+object WebApi {
   def default[F[_]: Sync](opsService: OpsService
-                        , linkService: LinkService[F]): Routes[F] =
-    new Http4sRoutes[F](opsService, linkService)
+                        , linkService: LinkService[F]): WebApi[F] =
+    new Http4SWebApi[F](opsService, linkService)
 
-  class Http4sRoutes[F[_]](opsService: OpsService
-                        , linkService: LinkService[F])(implicit F: Sync[F])
-    extends Routes[F]
+  class Http4SWebApi[F[_]](opsService: OpsService
+                           , linkService: LinkService[F])(implicit F: Sync[F])
+    extends WebApi[F]
     with Http4sDsl[F] {
 
     object OptionalStatusQueryParamMatcher extends OptionalQueryParamDecoderMatcher[LinkStatus]("status")
@@ -75,24 +75,24 @@ object Routes {
           .getLinks(UserId(userId), linkStatusOps, isInitiatorOps)
           .flatMap(linkIds => Ok(linkIds))
 
-      case GET -> Root / "links" / linkId =>
-        linkService
-          .getLink(LinkId(linkId))
-          .flatMap(optLink => Ok(optLink.toList))
-
       case PUT -> Root / "links" / linkId =>
         linkService.acceptLink(LinkId(linkId)) *> Ok(s"LinkId $linkId accepted")
-    }
 
-    def authedRoutes: AuthedRoutes[UserId, F] = AuthedRoutes.of {
-      // a prototype of using `AuthMiddleware` to authenticate the request
-      // more things can be done from `LinkService` such as the `userId`
-      // should be part of the link
-      case DELETE -> Root / "links" / linkId as userId =>
+      case DELETE -> Root / "links" / linkId =>
         linkService.removeLink(LinkId(linkId)).flatMap(msg => Ok(msg))
     }
 
-    val authUser: Kleisli[OptionT[F, *], Request[F], UserId] =
+    def authedRoutes: AuthedRoutes[UserId, F] = AuthedRoutes.of {
+      // illustrates how to use `AuthMiddleware` to authenticate the request
+      // more things can be done from `LinkService` such as the `userId`
+      // should be part of the link
+      case GET -> Root / "links" / linkId as userId =>
+        linkService
+          .getLink(LinkId(linkId))
+          .flatMap(optLink => Ok(optLink.toList))
+    }
+
+    val authUser: Kleisli[OptionT[F, ?], Request[F], UserId] =
       Kleisli { req =>
         val userIdOpt =
           req.headers.get("Authorization".ci)

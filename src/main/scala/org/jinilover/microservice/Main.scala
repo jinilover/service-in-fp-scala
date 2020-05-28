@@ -12,7 +12,7 @@ import cats.implicits._
 import config.ConfigLoader
 import persistence.{Doobie, LinkPersistence, Migrations}
 import service.LinkService
-import web.{Routes, WebServer}
+import web.{WebApi, WebServer}
 import ops.OpsService
 
 object Main extends IOApp {
@@ -35,7 +35,7 @@ object Main extends IOApp {
       clock = Clock.systemDefaultZone()
       linkService = LinkService.default[IO](persistence, clock, log)
 
-      routes = Routes.default[IO](opsService, linkService)
+      routes = WebApi.default[IO](opsService, linkService)
 
       exitCode <- WebServer.default(routes, appConfig.webserver).start.compile.drain.as(ExitCode.Success)
     } yield exitCode

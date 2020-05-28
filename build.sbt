@@ -1,13 +1,11 @@
 
-name := "serviceInFpScala"
+name := "service-in-fp-scala"
 
 version := "0.1"
 
 scalaVersion := "2.12.7"
 
 organization := "org.jinilover"
-
-name := "microservice"
 
 libraryDependencies ++= Dependencies.compile ++ Dependencies.test
 
@@ -24,7 +22,7 @@ scalacOptions ++= Seq(
   "-Ypartial-unification"
 )
 
-// sbt-buildinfo for generating BuildInfo details
+// sbt-buildinfo for generating BuildInfo under buildInfo folder
 enablePlugins(BuildInfoPlugin)
 buildInfoPackage := "buildInfo"
 
@@ -47,3 +45,32 @@ buildInfoKeys ++= Seq(
   gitCommitDate,
   gitCurrentBranch
 )
+
+enablePlugins(JavaAppPackaging)
+
+// building a docker image
+enablePlugins(DockerPlugin)
+
+import com.typesafe.sbt.packager.docker._
+
+version in Docker := version.value.trim
+dockerUpdateLatest in Docker := true
+packageName in Docker := s"jinilover/${name.value}"
+dockerBuildOptions ++= List("-t", dockerAlias.value.versioned)
+
+dockerCommands := Seq(
+  Cmd("FROM", "openjdk:11.0.4-jre-slim"),
+  Cmd("MAINTAINER", "jinilover <columbawong@gmail.com>"),
+  Cmd("WORKDIR", "/opt"),
+//  Cmd("RUN", "mkdir -p /opt/bin"),
+  Cmd("LABEL", "version=\"" + version.value.trim + "\""),
+  Cmd("ENV", "APPLICATION_VERSION", version.value.trim),
+  Cmd("ENV", "APPLICATION_NAME", name.value),
+  Cmd("ADD", "./opt/docker", "/opt"),
+  Cmd("EXPOSE", "9000 9000"),
+  Cmd("RUN", "mv /opt/docker-entrypoint.sh /opt/bin/docker-entrypoint.sh"),
+  Cmd("RUN", "chmod +x /opt/bin/docker-entrypoint.sh"),
+  Cmd("CMD", s"/opt/bin/docker-entrypoint.sh /opt/bin/${name.value}")
+)
+
+

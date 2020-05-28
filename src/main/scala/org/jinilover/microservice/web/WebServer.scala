@@ -18,7 +18,7 @@ trait WebServer[F[_]] {
 
 object WebServer {
   def default(
-       routes: Routes[IO]
+       routes: WebApi[IO]
      , webConfig: WebServerConfig)(
        implicit ec: ExecutionContext
      , timer: Timer[IO]
@@ -26,7 +26,7 @@ object WebServer {
     new Http4sServer(routes, webConfig)
 
   class Http4sServer(
-          routes: Routes[IO]
+          routes: WebApi[IO]
         , webConfig: WebServerConfig)(
           implicit ec: ExecutionContext
         , timer: Timer[IO]

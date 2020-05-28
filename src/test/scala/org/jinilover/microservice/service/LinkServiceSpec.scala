@@ -120,9 +120,7 @@ class LinkServiceSpec extends Specification with ScalaCheck {
 
     val initialState = erenSearchCriteria // any value is fine as it should be overwritten in the execution
     val (criteriaSentToDb, _) =
-      service.getLinks(uid, status, isInitiator)
-        .run(initialState)
-        .unsafeRunSync()
+      service.getLinks(uid, status, isInitiator).run(initialState).unsafeRunSync()
     val expectedResult = SearchLinkCriteria(uid, status, isInitiator)
 
     criteriaSentToDb must be_==(expectedResult)
