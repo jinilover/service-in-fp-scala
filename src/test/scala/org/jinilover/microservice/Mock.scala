@@ -48,6 +48,17 @@ object Mock {
   }
 
   val erenSearchCriteria = SearchLinkCriteria(userId = eren)
+  val possibleErenSearchCriterias = List[SearchLinkCriteria => SearchLinkCriteria](
+      identity
+    , _.copy(linkStatus = Some(LinkStatus.Accepted)) // search `Accepted` only
+    , _.copy(linkStatus = Some(LinkStatus.Pending)) // search `Pending` only
+    , _.copy(isInitiator = Some(true)) // the user is initiator only
+    , _.copy(isInitiator = Some(false)) // the user target only
+    , _.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Accepted))
+    , _.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Pending))
+    , _.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Accepted))
+    , _.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Pending))
+  ).map(f => f(erenSearchCriteria))
 
   val dummyLinkId = LinkId("dummy_linkId")
 

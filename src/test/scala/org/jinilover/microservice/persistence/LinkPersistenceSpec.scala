@@ -66,7 +66,7 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
         ${step{reasonOfStep}}
         should remove 1 link successfully $removeLink
         ${step{reasonOfStep}}
-        should add/update links and retrieve the links accordingly $addUpdateLinks
+        should add/update links and retrieve the links accordingly $addAndUpdateLinks
     """
   }
 
@@ -111,54 +111,46 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
 
   def addLinks = {
     List(
-      mika_add_eren, reiner_add_eren, bert_add_eren, eren_add_armin, eren_add_annie,
-      eren_add_levi, eren_add_erwin
+      mika_add_eren, reiner_add_eren, bert_add_eren,
+      eren_add_armin, eren_add_annie, eren_add_levi, eren_add_erwin
     ).traverse(persistence.add)
       .void
       .unsafeRunSync()
 
-    val srchCriterias = List(
-      erenSearchCriteria
-    , erenSearchCriteria.copy(linkStatus = Some(LinkStatus.Accepted)) // search `Accepted` only
-    , erenSearchCriteria.copy(isInitiator = Some(true)) // the user is inititator
-    , erenSearchCriteria.copy(isInitiator = Some(false)) // the user target
-    )
-
     // get the # of records searched for each query
-    val linkSizes = srchCriterias
+    val linkSizes = possibleErenSearchCriterias
       .traverse(persistence.getLinks)
       .unsafeRunSync()
       .map(_.size)
 
-    linkSizes must be_==(List(7, 0, 4, 3))
+    linkSizes must be_==(List(7, 0, 7, 4, 3, 0, 4, 0, 3))
   }
 
-  // similar test and check as `addLink` but it update the status/confirmDate afterwards
+  // similar to `addLink` but it also update the status/confirmDate afterwards
   def updateLink = {
     val linkId = persistence.add(mika_add_eren).unsafeRunSync()
 
     val confirmDate = clock.instant()
     persistence.update(linkId, confirmDate, LinkStatus.Accepted).unsafeRunSync()
 
-    val linkIdsFromDb = persistence.getLinks(erenSearchCriteria).unsafeRunSync()
+    val linkFromDb = persistence.get(linkId).unsafeRunSync()
 
-    val linkFromDb = persistence.get(linkIdsFromDb(0)).unsafeRunSync()
-
-    (linkIdsFromDb.size must be_==(1)) and
-      (linkFromDb.flatMap(_.id) must beSome) and
-      (linkFromDb.map(_.initiatorId) must beSome(mikasa)) and
-      (linkFromDb.map(_.targetId) must beSome(eren)) and
-      (linkFromDb.map(_.status) must beSome(LinkStatus.Accepted)) and // status must be `Accept` due to update
-      (linkFromDb.flatMap(_.uniqueKey) must beSome("eren_mikasa")) and
-      (linkFromDb.map(_.creationDate) must beSome(mika_add_eren.creationDate)) and
-      (linkFromDb.flatMap(_.confirmDate) must beSome(confirmDate)) // confirmDate nonEmpty due to update
+    (linkFromDb.flatMap(_.id) must beSome(linkId)) and
+    (linkFromDb.map(_.initiatorId) must beSome(mikasa)) and
+    (linkFromDb.map(_.targetId) must beSome(eren)) and
+    (linkFromDb.map(_.status) must beSome(LinkStatus.Accepted)) and // status must be `Accept` due to update
+    (linkFromDb.flatMap(_.uniqueKey) must beSome("eren_mikasa")) and
+    (linkFromDb.map(_.creationDate) must beSome(mika_add_eren.creationDate)) and
+    (linkFromDb.flatMap(_.confirmDate) must beSome(confirmDate)) // confirmDate nonEmpty due to update
   }
 
-  def addUpdateLinks = {
+  // similar to `addLinks` but this time the query result will be slightly different
+  // as some links are updated the status
+  def addAndUpdateLinks = {
     val linkIds =
       List(
-        mika_add_eren, reiner_add_eren, bert_add_eren, eren_add_armin, eren_add_annie,
-        eren_add_levi, eren_add_erwin
+        mika_add_eren, reiner_add_eren, bert_add_eren,
+        eren_add_armin, eren_add_annie, eren_add_levi, eren_add_erwin
       ).traverse(persistence.add)
         .unsafeRunSync()
 
@@ -169,20 +161,8 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
       .void
       .unsafeRunSync()
 
-    val srchCriterias = List(
-        erenSearchCriteria
-      , erenSearchCriteria.copy(linkStatus = Some(LinkStatus.Accepted)) // search `Accepted` only
-      , erenSearchCriteria.copy(linkStatus = Some(LinkStatus.Pending)) // search `Pending` only
-      , erenSearchCriteria.copy(isInitiator = Some(true)) // the user is initiator only
-      , erenSearchCriteria.copy(isInitiator = Some(false)) // the user target only
-      , erenSearchCriteria.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Accepted))
-      , erenSearchCriteria.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Pending))
-      , erenSearchCriteria.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Accepted))
-      , erenSearchCriteria.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Pending))
-    )
-
     // get the # of records searched for each query
-    val linkSizes = srchCriterias
+    val linkSizes = possibleErenSearchCriterias
       .traverse(persistence.getLinks)
       .unsafeRunSync()
       .map(_.size)
@@ -199,8 +179,8 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
     val linkIdsFromDb = persistence.getLinks(erenSearchCriteria).unsafeRunSync()
 
     (count1 must be_==(1)) and
-      (count2 must be_==(0)) and
-      (linkIdsFromDb must beEmpty)
+    (count2 must be_==(0)) and
+    (linkIdsFromDb must beEmpty)
   }
 
 
