@@ -58,18 +58,17 @@ class LinkServiceSpec extends Specification with ScalaCheck {
     val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
 
     val addLink = service.addLink(uid1, uid2)
-    val initialState = Set.empty[String] // mimic the data stored by the persistence
 
-    // 1st addLink should be success because the state is empty
-    val (state2, result1) = addLink.value.run(initialState).unsafeRunSync()
-    val expectedResult1 = Right(dummyLinkId)
-
-    // 2nd addLink of the same user Ids should fails
-    val (_, result2) = addLink.value.run(state2).unsafeRunSync()
-    val expectedResult2 =
-      Left(InputError(s"Link between ${uid1.unwrap} and ${uid2.unwrap} already exists"))
-
-    (result1 must be_==(expectedResult1)) and (result2 must be_==(expectedResult2))
+    {
+      for {
+        // 1st addLink should be success because the state is empty
+        (state2, result1) <- addLink.value.run(Set.empty[String])
+        expectedResult1 = Right(dummyLinkId)
+        // 2nd addLink should encounter unique key violation
+        (_, result2) <- addLink.value.run(state2)
+        expectedResult2 = Left(InputError(s"Link between ${uid1.unwrap} and ${uid2.unwrap} already exists"))
+      } yield (result1 must be_==(expectedResult1)) and (result2 must be_==(expectedResult2))
+    }.unsafeRunSync()
   }.setArbitrary(unequalUserIdsPairArbitrary)
 
   def acceptLink = {
@@ -79,16 +78,14 @@ class LinkServiceSpec extends Specification with ScalaCheck {
     val dummyLog = new MockLogMonadState[MonadStack, S]
     val mockDb = new MockDbForUpdateLink[MonadStack]
     val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
-    // mimic the original cache maintained by mockDb
     val initialState = (LinkId(""), Instant.ofEpochMilli(0L), LinkStatus.Pending)
 
     // test to ensure linkId, time, status sent to mockDb correctly
-    val ((linkId, time, status), _) =
-      service.acceptLink(dummyLinkId).run(initialState).unsafeRunSync()
-
-    (linkId must be_==(dummyLinkId)) and
+    service.acceptLink(dummyLinkId).run(initialState).map { case ((linkId, time, status), _) =>
+      (linkId must be_==(dummyLinkId)) and
       (Math.abs(time.getEpochSecond - clock.instant.getEpochSecond) must be ~(1L +/- 1L)) and
       (status must be_==(LinkStatus.Accepted))
+    }.unsafeRunSync()
   }
 
   def removeLink = {
@@ -98,17 +95,16 @@ class LinkServiceSpec extends Specification with ScalaCheck {
     val mockDb = new MockDbForRemoveLink[MonadStack]
     val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
 
-    // mimic there is 1 link originally inside mockDb
-    // in the first run, mockDb return `state = 1` and decremented the state by 1
-    // in the second run, mockDb return `state = 0`
-    val (_, msgs) =
-      List.fill(2)(dummyLinkId).traverse(service.removeLink).run(1).unsafeRunSync()
+    // there is 1 link originally inside mockDb
+    // in removing dummyLinkId the 1st time, mockDb return 1 link is deleted and decrement its state by 1
+    // so in removing dummyLinkId the 2nd time, mockDb return `state = 0`
+    // s.t. service will return a different message
     val expectedMsgs = List(
       s"Linkid ${dummyLinkId.unwrap} removed successfully"
-    , s"No need to remove non-exist linkid ${dummyLinkId.unwrap}"
-    )
-
-    msgs must be_==(expectedMsgs)
+      , s"No need to remove non-exist linkid ${dummyLinkId.unwrap}")
+    List.fill(2)(dummyLinkId).traverse(service.removeLink).run(1).map {
+      case (_, msgs) => msgs must be_==(expectedMsgs)
+    }.unsafeRunSync()
   }
 
   def getLinks = prop { (uid: UserId, status: Option[LinkStatus], isInitiator: Option[Boolean]) =>
@@ -118,26 +114,25 @@ class LinkServiceSpec extends Specification with ScalaCheck {
     val mockDb = new MockDbForGetLinks[MonadStack](Nil)
     val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
 
-    val initialState = erenSearchCriteria // any value is fine as it should be overwritten in the execution
-    val (criteriaSentToDb, _) =
-      service.getLinks(uid, status, isInitiator).run(initialState).unsafeRunSync()
     val expectedResult = SearchLinkCriteria(uid, status, isInitiator)
-
-    criteriaSentToDb must be_==(expectedResult)
+    // any value is fine as it should be overwritten in the execution
+    val initialState = erenSearchCriteria
+    service.getLinks(uid, status, isInitiator).run(initialState).map {
+      case (criteriaSentToDb, _) => criteriaSentToDb must be_==(expectedResult)
+    }.unsafeRunSync()
   }
 
-  def getLink =
-    (
-      for {
-        log <- Log.default
-        dbCache: Map[LinkId, Link] = Map(dummyLinkId -> mika_add_eren)
-        mockDb = new MockDbForGetLink(dbCache)
-        service = LinkService.default(mockDb, clock, log)
+  def getLink = {
+    for {
+      log <- Log.default
+      dbCache: Map[LinkId, Link] = Map(dummyLinkId -> mika_add_eren)
+      mockDb = new MockDbForGetLink(dbCache)
+      service = LinkService.default(mockDb, clock, log)
 
-        existLink <- service.getLink(dummyLinkId)
-        nonExistLInk <- service.getLink(LinkId("non exist link"))
-      } yield
-        (existLink must beSome(mika_add_eren)) and
+      existLink <- service.getLink(dummyLinkId)
+      nonExistLInk <- service.getLink(LinkId("non exist link"))
+    } yield
+      (existLink must beSome(mika_add_eren)) and
         (nonExistLInk must beNone)
-    ).unsafeRunSync()
+  }.unsafeRunSync()
 }
