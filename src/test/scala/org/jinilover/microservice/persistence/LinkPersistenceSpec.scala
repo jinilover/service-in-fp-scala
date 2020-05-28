@@ -173,14 +173,13 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
   def removeLink = {
     val linkId = persistence.add(mika_add_eren).unsafeRunSync()
 
-    val count1 = persistence.remove(linkId).unsafeRunSync() // 1
-    val count2 = persistence.remove(linkId).unsafeRunSync() // 0
+    val noOfRecordsDeleted1 = persistence.remove(linkId).unsafeRunSync()
+    val linkFromDb = persistence.get(linkId).unsafeRunSync()
+    val noOfRecordsDeleted2 = persistence.remove(linkId).unsafeRunSync()
 
-    val linkIdsFromDb = persistence.getLinks(erenSearchCriteria).unsafeRunSync()
-
-    (count1 must be_==(1)) and
-    (count2 must be_==(0)) and
-    (linkIdsFromDb must beEmpty)
+    (noOfRecordsDeleted1 must be_==(1)) and
+    (noOfRecordsDeleted2 must be_==(0)) and
+    (linkFromDb must beEmpty)
   }
 
 
