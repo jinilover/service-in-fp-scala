@@ -58,19 +58,20 @@ dockerUpdateLatest in Docker := true
 packageName in Docker := s"jinilover/${name.value}"
 dockerBuildOptions ++= List("-t", dockerAlias.value.versioned)
 
+val entryScript = "docker-entrypoint.sh"
+
 dockerCommands := Seq(
   Cmd("FROM", "openjdk:11.0.4-jre-slim"),
   Cmd("MAINTAINER", "jinilover <columbawong@gmail.com>"),
   Cmd("WORKDIR", "/opt"),
-//  Cmd("RUN", "mkdir -p /opt/bin"),
   Cmd("LABEL", "version=\"" + version.value.trim + "\""),
   Cmd("ENV", "APPLICATION_VERSION", version.value.trim),
   Cmd("ENV", "APPLICATION_NAME", name.value),
   Cmd("ADD", "./opt/docker", "/opt"),
   Cmd("EXPOSE", "9000 9000"),
-  Cmd("RUN", "mv /opt/docker-entrypoint.sh /opt/bin/docker-entrypoint.sh"),
-  Cmd("RUN", "chmod +x /opt/bin/docker-entrypoint.sh"),
-  Cmd("CMD", s"/opt/bin/docker-entrypoint.sh /opt/bin/${name.value}")
+  Cmd("RUN", s"mv /opt/${entryScript} /opt/bin/${entryScript}"),
+  Cmd("RUN", s"chmod +x /opt/bin/${entryScript}"),
+  Cmd("CMD", s"/opt/bin/${entryScript} /opt/bin/${name.value}")
 )
 
 
