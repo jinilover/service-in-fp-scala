@@ -118,12 +118,11 @@ object Mock {
   }
 
   class MockDbForGetLinks[F[_]: Monad]
-    (linkIds: List[LinkId])
     (implicit MS: MonadState[F, SearchLinkCriteria])
     extends DummyPersistence[F] {
 
     override def getLinks(srchCriteria: SearchLinkCriteria): F[List[LinkId]] =
-      MS.set(srchCriteria) *> MS.monad.pure(linkIds)
+      MS.set(srchCriteria) *> MS.monad.pure(Nil)
   }
 
   class MockDbForGetLink(cache: Map[LinkId, Link]) extends DummyPersistence[IO] {
@@ -170,6 +169,22 @@ object Mock {
       F.raiseError(
         InputError(s"Link between ${initiatorId.unwrap} and ${targetId.unwrap} already exists")
       )
+  }
+
+  class MockServiceForRemoveOneLink[F[_]]
+    (implicit F: Monad[F])
+    extends DummyService[F] {
+
+    override def removeLink(id: LinkId): F[String] =
+      F.pure(s"Linkid ${id.unwrap} removed successfully")
+  }
+
+  class MockServiceForRemoveZeroLink[F[_]]
+    (implicit F: Monad[F])
+    extends DummyService[F] {
+
+    override def removeLink(id: LinkId): F[String] =
+      F.pure(s"No need to remove non-exist linkid ${id.unwrap}")
   }
 
   // mock log

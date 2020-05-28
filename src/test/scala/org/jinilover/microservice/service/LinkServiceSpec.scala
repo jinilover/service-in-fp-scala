@@ -101,7 +101,7 @@ class LinkServiceSpec extends Specification with ScalaCheck {
     // s.t. service will return a different message
     val expectedMsgs = List(
       s"Linkid ${dummyLinkId.unwrap} removed successfully"
-      , s"No need to remove non-exist linkid ${dummyLinkId.unwrap}")
+    , s"No need to remove non-exist linkid ${dummyLinkId.unwrap}")
     List.fill(2)(dummyLinkId).traverse(service.removeLink).run(1).map {
       case (_, msgs) => msgs must be_==(expectedMsgs)
     }.unsafeRunSync()
@@ -111,12 +111,12 @@ class LinkServiceSpec extends Specification with ScalaCheck {
     type MonadStack[A] = StateT[IO, SearchLinkCriteria, A]
 
     val dummyLog = new MockLogMonadState[MonadStack, SearchLinkCriteria]
-    val mockDb = new MockDbForGetLinks[MonadStack](Nil)
+    val mockDb = new MockDbForGetLinks[MonadStack]
     val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
 
     val expectedResult = SearchLinkCriteria(uid, status, isInitiator)
     // any value is fine as it should be overwritten in the execution
-    val initialState = erenSearchCriteria
+    val initialState = SearchLinkCriteria(UserId("value_doesnt_matter"))
     service.getLinks(uid, status, isInitiator).run(initialState).map {
       case (criteriaSentToDb, _) => criteriaSentToDb must be_==(expectedResult)
     }.unsafeRunSync()
@@ -131,8 +131,6 @@ class LinkServiceSpec extends Specification with ScalaCheck {
 
       existLink <- service.getLink(dummyLinkId)
       nonExistLInk <- service.getLink(LinkId("non exist link"))
-    } yield
-      (existLink must beSome(mika_add_eren)) and
-        (nonExistLInk must beNone)
+    } yield (existLink must beSome(mika_add_eren)) and (nonExistLInk must beNone)
   }.unsafeRunSync()
 }

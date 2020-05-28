@@ -47,7 +47,8 @@ class WebApiSpec extends Specification with ScalaCheck {
         GET   /links/linkId for unauthorised req $unauthorisedGetLink
         GET   /links/linkId for existing or non-exist link $getLink
         PUT   /links/linkId for accepting a link $acceptLink
-        DELETE /links/linkId authorisation check and return message accordingly $deleteLink
+        DELETE /links/linkId return message of deleting existing link $deleteExistingLink
+        DELETE /links/linkId return message of deleting non-existing link $deleteNonExistLink
     """
 
   def welcomeMsgOk = {
@@ -109,7 +110,7 @@ class WebApiSpec extends Specification with ScalaCheck {
   }.setArbitrary(unequalUserIdsPairArbitrary)
 
   // use a mock service that only throw unique key violation to ensure
-  // `Routes` handles it correctly
+  // `WebApi` handles it correctly
   def handleUniqueKeyViolation = {
     val mockService = new MockServiceForUniqueKeyViolation[IO]
     val routes = createRoutes(mockService)
@@ -121,35 +122,31 @@ class WebApiSpec extends Specification with ScalaCheck {
     checkRes(routes.run(req), Status.BadRequest, "Link between eren and mikasa already exists")
   }
 
-  // Test is similar to `LinkServiceSpec.getLinks`, reuse MockDbForGetLinks
+  // set up all possible query parameters to make sure
+  // it extracts/sends them to backend correctly
+  // test is similar to `LinkServiceSpec.getLinks`, therefore reuse `MockDbForGetLinks`
   def getLinksWithQueryParams = {
     type MonadStack[A] = StateT[IO, SearchLinkCriteria, A]
 
     val dummyLog = new MockLogMonadState[MonadStack, SearchLinkCriteria]
-    val mockDb = new MockDbForGetLinks[MonadStack](Nil)
+    val mockDb = new MockDbForGetLinks[MonadStack]
     val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
     val routes = createRoutes(service)
 
     val reqs = List(
       uri"/users/eren/links"
-    , uri"/users/eren/links?status=Pending"
     , uri"/users/eren/links?status=Accepted"
+    , uri"/users/eren/links?status=Pending"
     , uri"/users/eren/links?is_initiator=true"
     , uri"/users/eren/links?is_initiator=false"
+    , uri"/users/eren/links?is_initiator=true&status=Accepted"
+    , uri"/users/eren/links?status=Pending&is_initiator=true" // param order shouldn't matter
     , uri"/users/eren/links?is_initiator=false&status=Accepted"
-    , uri"/users/eren/links?status=Pending&is_initiator=true"
+    , uri"/users/eren/links?status=Pending&is_initiator=false"
     ).map(Request[MonadStack](Method.GET, _))
 
-    val initialState = erenSearchCriteria
-    val expectedStates = List[SearchLinkCriteria => SearchLinkCriteria](
-      identity
-    , _.copy(linkStatus = Some(LinkStatus.Pending))
-    , _.copy(linkStatus = Some(LinkStatus.Accepted))
-    , _.copy(isInitiator = Some(true))
-    , _.copy(isInitiator = Some(false))
-    , _.copy(isInitiator = Some(false), linkStatus = Some(LinkStatus.Accepted))
-    , _.copy(isInitiator = Some(true), linkStatus = Some(LinkStatus.Pending))
-    ).map(f => f(initialState))
+    val initialState = SearchLinkCriteria(UserId("value_doesnt_matter"))
+    val expectedStates = possibleErenSearchCriterias
 
     reqs.zip(expectedStates).map { case (req, expectedState) =>
       checkBackendState(routes.run(req).run(initialState), expectedState)
@@ -184,6 +181,7 @@ class WebApiSpec extends Specification with ScalaCheck {
     , List.empty[Link])
   }
 
+  // it should extract the link id and send to backend correctly
   def acceptLink = prop { (expectedState: LinkId) =>
     type MonadStack[A] = StateT[IO, LinkId, A]
 
@@ -199,33 +197,20 @@ class WebApiSpec extends Specification with ScalaCheck {
   // when there is a link
   // delete link in the first should get response that 1 link is deleted
   // rerun the request should get response that the link does not exist
-  def deleteLink = {
-    type MonadStack[A] = StateT[IO, Int, A]
-
+  def deleteExistingLink = {
     val sampleLinkId = "any_id_is_ok"
-    val dummyLog = new MockLogMonadState[MonadStack, Int]
-    val mockDb = new MockDbForRemoveLink[MonadStack]
-    val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
-    val routes = createRoutes(service)
-    val req = Request[MonadStack](Method.DELETE, Uri(path = s"/links/${sampleLinkId}"))
+    val routes = createRoutes(new MockServiceForRemoveOneLink[IO])
+    val req = Request[IO](Method.DELETE, Uri(path = s"/links/${sampleLinkId}"))
 
-    // run twice to return different messages due to backend state change
-    val result: List[String] =
-      List(req, req).traverse { req =>
-        for {
-          res <- routes.run(req)
-          strs <- res.bodyAsText.compile.toList
-        } yield strs.head
-      }
-      .run(initial = 1) // mimic there is 1 link to be deleted in the beginning
-      .map(_._2)
-      .unsafeRunSync()
+    checkRes(routes.run(req), Status.Ok, s"Linkid $sampleLinkId removed successfully")
+  }
 
-    val expectedResMsgs = List(
-      s""""Linkid $sampleLinkId removed successfully""""
-    , s""""No need to remove non-exist linkid $sampleLinkId"""")
+  def deleteNonExistLink = {
+    val sampleLinkId = "any_id_is_ok"
+    val routes = createRoutes(new MockServiceForRemoveZeroLink[IO])
+    val req = Request[IO](Method.DELETE, Uri(path = s"/links/${sampleLinkId}"))
 
-    (result must be_==(expectedResMsgs))
+    checkRes(routes.run(req), Status.Ok, s"No need to remove non-exist linkid $sampleLinkId")
   }
 
   private def createEntityBody(s: String): EntityBody[IO] =
