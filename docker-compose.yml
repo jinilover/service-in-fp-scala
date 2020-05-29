@@ -16,6 +16,7 @@ services:
     ports:
       - 9000:9000
     environment:
+      # all env vars are defined in application.conf
       - DB_URL=jdbc:postgresql://database:5432/postgres
       - API_PORT=9000
     depends_on:

@@ -9,11 +9,8 @@ import cats.implicits._
 import cats.mtl.implicits._
 import cats.effect.{IO, Sync}
 
-import fs2.Stream
-
-import io.circe.parser._
-import io.circe.Decoder
-
+import io.circe.{Decoder, Encoder}
+import org.http4s.circe.{jsonEncoderOf, jsonOf}
 import org.http4s._
 import org.http4s.implicits._
 
@@ -23,7 +20,7 @@ import buildInfo.BuildInfo
 import ops.OpsService
 import OpsTypes.VersionInfo
 import service.LinkService
-import LinkTypes.{Link, LinkId, LinkStatus, SearchLinkCriteria, UserId}
+import LinkTypes._
 import persistence.LinkPersistence
 
 import Mock._
@@ -34,6 +31,10 @@ import LinkTypeArbitraries._
   */
 class WebApiSpec extends Specification with ScalaCheck {
   lazy val clock = Clock.systemDefaultZone()
+
+  implicit def entityEncoder[A: Encoder]: EntityEncoder[IO, A] = jsonEncoderOf[IO, A]
+
+  implicit def entityDecoder[A: Decoder]: EntityDecoder[IO, A] = jsonOf[IO, A]
 
   override def is =
     s2"""
@@ -55,7 +56,7 @@ class WebApiSpec extends Specification with ScalaCheck {
     val routes = createRoutes(createService(new DummyPersistence))
     val req = Request[IO](Method.GET, uri"/")
 
-    checkRes(routes.run(req), Status.Ok, "Welcome to REST servce in functional Scala!")
+    checkRes(routes.run(req), Status.Ok, Some("Welcome to REST servce in functional Scala!"))
   }
 
   def versionInfoOk = {
@@ -65,7 +66,7 @@ class WebApiSpec extends Specification with ScalaCheck {
     checkRes(
       routes.run(req)
     , Status.Ok
-    , VersionInfo(
+    , Some(VersionInfo(
         name = BuildInfo.name
       , version = BuildInfo.version
       , scalaVersion = BuildInfo.scalaVersion
@@ -74,7 +75,7 @@ class WebApiSpec extends Specification with ScalaCheck {
       , gitCommitMessage = BuildInfo.gitCommitMessage
       , gitCommitDate = BuildInfo.gitCommitDate
       , gitCurrentBranch = BuildInfo.gitCurrentBranch)
-    )
+    ))
   }
 
   def userAddToHimself = prop { (uid1: UserId, uid2: UserId) =>
@@ -82,13 +83,13 @@ class WebApiSpec extends Specification with ScalaCheck {
     val routes = createRoutes(createService(mockDb))
     val req = Request[IO](Method.POST
       , Uri(path = s"/users/${uid1}/links")
-      , body = createEntityBody(s""""${uid2.unwrap}""""))
+      , body = createEntityBody(uid2.unwrap))
     val resIO = routes.run(req)
 
     if (uid1 == uid2)
-      checkRes(resIO, Status.BadRequest, "Both user ids are the same")
+      checkRes(resIO, Status.BadRequest, Some("Both user ids are the same"))
     else
-      checkRes(resIO, Status.Ok, s"${dummyLinkId.unwrap}")
+      checkRes(resIO, Status.Ok, Some(s"${dummyLinkId.unwrap}"))
   }
 
   // test to ensure user ids are extracted from request and sent to service correctly
@@ -100,8 +101,8 @@ class WebApiSpec extends Specification with ScalaCheck {
     val routes = createRoutes(mockService)
     val req = Request[MonadStack](
       Method.POST
-    , Uri(path = s"/users/${uid1}/links")
-    , body = Stream.emits(s""""${uid2}"""".getBytes).evalMap{ x => StateT(s => IO(s, x)) }
+    , Uri(path = s"/users/${uid1.unwrap}/links")
+    , body = jsonEncoderOf[MonadStack, UserId].toEntity(uid2).body
     )
 
     checkBackendState(
@@ -117,9 +118,9 @@ class WebApiSpec extends Specification with ScalaCheck {
     val req = Request[IO](
       Method.POST
     , uri"/users/eren/links"
-    , body = createEntityBody(""""mikasa""""))
+    , body = createEntityBody("mikasa"))
 
-    checkRes(routes.run(req), Status.BadRequest, "Link between eren and mikasa already exists")
+    checkRes(routes.run(req), Status.BadRequest, Some("Link between eren and mikasa already exists"))
   }
 
   // set up all possible query parameters to make sure
@@ -157,7 +158,7 @@ class WebApiSpec extends Specification with ScalaCheck {
     val routes = createRoutes(createService(new MockDbForGetLink(Map.empty[LinkId, Link])))
     val authReq = Request[IO](Method.GET, uri"/links/any_linkid_doesnt_matter")
 
-    routes.run(authReq).unsafeRunSync().status must be_==(Status.Unauthorized)
+    checkRes[String](routes.run(authReq), Status.Unauthorized, None)
   }
 
   def getLink = {
@@ -174,11 +175,11 @@ class WebApiSpec extends Specification with ScalaCheck {
     checkRes(
       routes.run(createReq(Uri(path = s"/links/${linkId.unwrap}")))
     , Status.Ok
-    , List(link)) and
+    , Some(List(link))) and
     checkRes(
       routes.run(createReq(uri"/links/non_exist_linkid"))
     , Status.Ok
-    , List.empty[Link])
+    , Some(List.empty[Link]))
   }
 
   // it should extract the link id and send to backend correctly
@@ -202,7 +203,7 @@ class WebApiSpec extends Specification with ScalaCheck {
     val routes = createRoutes(new MockServiceForRemoveOneLink[IO])
     val req = Request[IO](Method.DELETE, Uri(path = s"/links/${sampleLinkId}"))
 
-    checkRes(routes.run(req), Status.Ok, s"Linkid $sampleLinkId removed successfully")
+    checkRes(routes.run(req), Status.Ok, Some(s"Linkid $sampleLinkId removed successfully"))
   }
 
   def deleteNonExistLink = {
@@ -210,11 +211,11 @@ class WebApiSpec extends Specification with ScalaCheck {
     val routes = createRoutes(new MockServiceForRemoveZeroLink[IO])
     val req = Request[IO](Method.DELETE, Uri(path = s"/links/${sampleLinkId}"))
 
-    checkRes(routes.run(req), Status.Ok, s"No need to remove non-exist linkid $sampleLinkId")
+    checkRes(routes.run(req), Status.Ok, Some(s"No need to remove non-exist linkid $sampleLinkId"))
   }
 
-  private def createEntityBody(s: String): EntityBody[IO] =
-    Stream.emits(s.getBytes).evalMap(x => IO(x))
+  private def createEntityBody(s: String)(implicit E: EntityEncoder[IO, String]): EntityBody[IO] =
+    E.toEntity(s).body
 
   private def createService(db: LinkPersistence[IO]): LinkService[IO] =
     LinkService.default(db, clock, Log.default.unsafeRunSync())
@@ -222,17 +223,14 @@ class WebApiSpec extends Specification with ScalaCheck {
   private def createRoutes[F[_]: Sync](service: LinkService[F]): HttpApp[F] =
     WebApi.default[F](OpsService.default, service).routes
 
-  private def checkRes[A: Decoder](
-    resIO: IO[Response[IO]]
-  , expectedStatus: Status
-  , expectedBody: A) = {
+  private def checkRes[A](resIO: IO[Response[IO]], expectedStatus: Status, expectedBody: Option[A])
+                         (implicit D: EntityDecoder[IO, A]) = {
     for {
       res <- resIO
-      bodyText <- res.bodyAsText.compile.toList.map(_.head)
-    } yield {
-      val body = parse(bodyText).flatMap(_.as[A])
-      (res.status must be_==(expectedStatus)) and (body must be_==(Right(expectedBody)))
-    }
+      bodyAsserted <- expectedBody.fold[IO[Boolean]] {
+                        res.body.compile.toList.map(_.isEmpty)
+                      }{ expected => res.as[A].map(_ == expected) }
+    } yield (res.status must be_==(expectedStatus)) and (bodyAsserted must beTrue)
   }.unsafeRunSync()
 
   private def checkBackendState[S](

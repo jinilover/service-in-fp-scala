@@ -1,3 +1,4 @@
+import Dependencies.dep
 import sbt._
 
 object Dependencies {
@@ -18,7 +19,6 @@ object Dependencies {
     dep("io.monix", "3.2.1", "monix"),
     dep("org.scalaz", "7.2.25", "scalaz-core"),
     dep("com.github.pureconfig", "0.12.3", "pureconfig"),
-    dep("org.typelevel", "0.7.1", "cats-mtl-core"),
     Seq("ch.qos.logback"  % "logback-classic" % "1.2.3"),
     Seq("org.flywaydb"    % "flyway-core"     % "5.0.7")
   ).flatten
@@ -28,8 +28,8 @@ object Dependencies {
     testDep("org.specs2", "4.9.3",
       "specs2-core",
       "specs2-scalacheck"),
-    testDep("io.circe", circeV,"circe-parser"),
-    testDep("org.scalacheck", "1.14.3", "scalacheck")
+    testDep("org.scalacheck", "1.14.3", "scalacheck"),
+    testDep("org.typelevel", "0.7.1", "cats-mtl-core")
   ).flatten
 
   def testDep(group: String, version: String, pkgs: String*) =
