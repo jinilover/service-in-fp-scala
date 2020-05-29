@@ -29,7 +29,7 @@ object WebApi {
     new Http4SWebApi[F](opsService, linkService)
 
   class Http4SWebApi[F[_]](opsService: OpsService
-                           , linkService: LinkService[F])(implicit F: Sync[F])
+                         , linkService: LinkService[F])(implicit F: Sync[F])
     extends WebApi[F]
     with Http4sDsl[F] {
 

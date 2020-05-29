@@ -19,7 +19,7 @@ I use the built in authentication middleware to wrapper a route for `GET /links/
 https://github.com/jinilover/mtl-classy-prism explains what is mtl and the problem it solves.  It is a Haskell project but the concept is more easily understood in Haskell :slightly_smiling_face:
 
 ### How mtl solves my problem
-In `LinkService` unit test, it only tests its logic w/o a real database.  Using a mock db that entertains the `LinkService` logic will do the job.  Depending on the requirement, sometimes the mock db should be able to *change* the state.  I once used `var` in the mock db and accidentally discovered the unit test fails to be RT.  Although it is unit test code, I don't want to remember which part is not RT and pay special care for it.  To solve the problem gracefully, I decided to use state monad.  `MonadState` is preferred because it is type class so that any `MonadState` instance is a state monad.
+The `LinkService` unit test only only need to test its logic w/o requiring a real database.  Using a mock db that entertains the `LinkService` logic will do the job.  Depending on the requirement, sometimes the mock db should be able to *change* the state.  I once used `var` in the mock db and accidentally discovered the unit test fails to be RT.  Although it is unit test code, I don't want to remember which part is not RT and pay special care for it.  To solve the problem gracefully, I decided to use state monad.  `MonadState` comes to the rescue because it is type class, any `MonadState` instance is a state monad.
 
 Example
 ```scala
@@ -34,7 +34,7 @@ Example
 
 To instantiate `MockDbForRemoveLink`, I should choose an `F` that fulfills both `Monad` and `MonadState` requirement.
 
-Example
+The following example is valid because there is `MonadState[StateT[F, S, ?], S]` instance.
 ```scala
 new MockDbForRemoveLink[StateT[IO, Int, ?]]
 ```
@@ -73,17 +73,19 @@ new MockDbViolateUniqueKey[StateT[EitherT[IO, Throwable, ?], Set[String], ?]]
 
 * First example is valid because 
     * There is `MonadError[EitherT[F, E, ?], E]` instance and
-    * There is `MonadState[EitherT[F, E, ?], S]` instance whose implementation requires a `MonadState[F, S]` instance which is `MonadState[StateT[M, S, ?], S]` here.  In this example, `M` is `IO`, `S` is `Set[String]`, `E` is `Throwable`.  Therefore the concrete answer is `EitherT[StateT[IO, Set[String], ?], Throwable, ?]`
+    * There is `MonadState[EitherT[F, E, ?], S]` instance whose implementation requires a `MonadState[F, S]` instance and `MonadState[StateT[M, S, ?], S]` is available here.  Therefore `F` is `StateT[M, S, ?]`.  In this example, `M` is `IO`, `S` is `Set[String]`, `E` is `Throwable`.  Therefore the concrete answer is `EitherT[StateT[IO, Set[String], ?], Throwable, ?]`
 * Second example is also valid because
     * There is `MonadState[StateT[F, S, ?], S]` instance and
-    * There is `MonadError[StateT[F, S, ?], E]` instance whose implementation requires a `MonadError[F, E]` instance which is `MonadError[EitherT[M, E, ?], E]`.  Therefore the concrete answer is `StateT[EitherT[IO, Throwable, ?], Set[String], ?]`
+    * There is `MonadError[StateT[F, S, ?], E]` instance whose implementation requires a `MonadError[F, E]` instance and `MonadError[EitherT[M, E, ?], E]` is available here.  Therefore `F` is `EitherT[M, E, ?]`.  Again, `M` is `IO`, `S` is `Set[String]`, `E` is `Throwable`.  Therefore the concrete answer is `StateT[EitherT[IO, Throwable, ?], Set[String], ?]`
 
-I don't know exactly where are these instances located :sweat_smile:  To make it compile, import the following packages
+I don't know exactly where are these instances located :sweat_smile:  To make it compile, import the following packages that contain all cats and mtl implicit instances.
 ```scala
 import cats.data.{EitherT, StateT}
 import cats.implicits._
 import cats.mtl.implicits._
 ```
+
+Now we can see the advantages of mtl over monad transfomers.  They are type classes only and therefore do not restrict the order of stacking the monads.  In the above example, either `EitherT[StateT[IO, Set[String], ?], Throwable, ?]` or `StateT[EitherT[IO, Throwable, ?], Set[String], ?]` fulfills the requirement of both `MonadState` and `MonadError`.
 
 ### Reference
 * https://typelevel.org/cats-mtl/getting-started.html
