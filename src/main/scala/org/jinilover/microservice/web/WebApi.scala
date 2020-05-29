@@ -8,11 +8,8 @@ import cats.syntax.monadError._
 import cats.syntax.flatMap._
 import cats.syntax.apply._
 
-import cats.effect.{Sync}
+import cats.effect.Sync
 
-import io.circe.{Decoder, Encoder}
-
-import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
 import org.http4s._
@@ -43,18 +40,9 @@ object WebApi {
     // true means the user initiates the link and o.w.
     object OptionalIsUserInitiatorQueryParamMatcher extends OptionalQueryParamDecoderMatcher[Boolean]("is_initiator")
 
-    implicit def entityEncoder[A: Encoder]: EntityEncoder[F, A] = jsonEncoderOf[F, A]
-
-    implicit def entityDecoder[A: Decoder]: EntityDecoder[F, A] = jsonOf[F, A]
-
     def opsRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
       case GET -> Root  => Ok(opsService.welcomeMsg())
       case GET -> Root / "version_info" => Ok(opsService.versionInfo())
-        // just for experiment
-//      case req@POST -> Root / "post_version_info" =>
-//        req.decode[VersionInfo] { verInfo =>
-//          Ok(verInfo)
-//        }
     }
 
     def serviceRoutes: HttpRoutes[F] = HttpRoutes.of[F] {

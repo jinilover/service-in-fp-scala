@@ -9,8 +9,6 @@ import cats.implicits._
 import cats.mtl.implicits._
 import cats.effect.{IO, Sync}
 
-import io.circe.{Decoder, Encoder}
-import org.http4s.circe.{jsonEncoderOf, jsonOf}
 import org.http4s._
 import org.http4s.implicits._
 
@@ -31,10 +29,6 @@ import LinkTypeArbitraries._
   */
 class WebApiSpec extends Specification with ScalaCheck {
   lazy val clock = Clock.systemDefaultZone()
-
-  implicit def entityEncoder[A: Encoder]: EntityEncoder[IO, A] = jsonEncoderOf[IO, A]
-
-  implicit def entityDecoder[A: Decoder]: EntityDecoder[IO, A] = jsonOf[IO, A]
 
   override def is =
     s2"""
@@ -102,7 +96,7 @@ class WebApiSpec extends Specification with ScalaCheck {
     val req = Request[MonadStack](
       Method.POST
     , Uri(path = s"/users/${uid1.unwrap}/links")
-    , body = jsonEncoderOf[MonadStack, UserId].toEntity(uid2).body
+    , body = implicitly[EntityEncoder[MonadStack, UserId]].toEntity(uid2).body
     )
 
     checkBackendState(
