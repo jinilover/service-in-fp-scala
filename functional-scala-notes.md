@@ -89,6 +89,12 @@ import cats.mtl.implicits._
 * https://typelevel.org/cats-mtl/getting-started.html
 
 ## Doobie
-???
+It's pretty straight forward.  The main features used in this project:
+* Doobie `Meta` for custom mapping between application type and types compatible with the database.  Details can be referred to `Doobie.scala`
+* `sql` and `fr` interpolation for creating sql statements and statement fragments respectively.  It only allows to pass column values as variables to these interpolation.  Column names must be hardcoded inside the statements.  Details can be referred to `LinkPersistence.scala`.
 
-## Lesson
+### Circe
+It's quite easy to use.  
+* Built in encoders and decoders for common primitive types are provided.  Custom encoder/decoder is simply made by using encoder `contramap` and decoder `map`.  
+* Encoder/decoder of case class is easily derived by using `io.circe.generic.semiauto.{deriveEncoder, deriveDecoder}`  Details can be referred to `LinkTypes.scala`
+* Http4s provides `EntityEncoder` and `EntityDecoder` that support circe.  https://http4s.org/v0.21/entity/
