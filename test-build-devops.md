@@ -47,6 +47,8 @@ dockerCommands := Seq(
 * Run `sbt docker:publishLocal` to build the image.
 * Type `docker images`.  The image should be available at the local repository.
 * Prepare `docker-compose.yml` to set up the containers of postgres db and the REST service.
-* Run `docker-compose up`.
-* For more information about the sbt docker plugin, please refer to https://www.scala-sbt.org/sbt-native-packager/formats/docker.html
+* Run `docker-compose up`
 * Test it by typing http://localhost:9000/
+
+## Reference
+* For more information about the sbt docker plugin, please refer to https://www.scala-sbt.org/sbt-native-packager/formats/docker.html
