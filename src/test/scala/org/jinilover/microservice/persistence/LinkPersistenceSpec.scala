@@ -176,12 +176,12 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
     val linkId = persistence.add(link).unsafeRunSync()
 
     val noOfRecordsDeleted1 = persistence.remove(linkId).unsafeRunSync()
-    val linkFromDb = persistence.get(linkId).unsafeRunSync()
+    val removedLinkFromDb = persistence.get(linkId).unsafeRunSync()
     val noOfRecordsDeleted2 = persistence.remove(linkId).unsafeRunSync()
 
     (noOfRecordsDeleted1 must be_==(1)) and
     (noOfRecordsDeleted2 must be_==(0)) and
-    (linkFromDb must beEmpty)
+    (removedLinkFromDb must beEmpty)
   }.setArbitrary(unequalUserIdsPairArbitrary)
 
 
