@@ -170,8 +170,10 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
     linkSizes must be_==(List(7, 2, 5, 4, 3, 0, 4, 2, 1))
   }
 
-  def removeLink = {
-    val linkId = persistence.add(mika_add_eren).unsafeRunSync()
+  def removeLink = prop { (uidPair: (UserId, UserId)) =>
+    val (uid1, uid2) = uidPair
+    val link = createNewLink(uid1, uid2)
+    val linkId = persistence.add(link).unsafeRunSync()
 
     val noOfRecordsDeleted1 = persistence.remove(linkId).unsafeRunSync()
     val linkFromDb = persistence.get(linkId).unsafeRunSync()
@@ -180,7 +182,7 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
     (noOfRecordsDeleted1 must be_==(1)) and
     (noOfRecordsDeleted2 must be_==(0)) and
     (linkFromDb must beEmpty)
-  }
+  }.setArbitrary(unequalUserIdsPairArbitrary)
 
 
 }
