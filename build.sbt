@@ -65,8 +65,6 @@ dockerCommands := Seq(
   Cmd("MAINTAINER", "jinilover <columbawong@gmail.com>"),
   Cmd("WORKDIR", "/opt"),
   Cmd("LABEL", "version=\"" + version.value.trim + "\""),
-  Cmd("ENV", "APPLICATION_VERSION", version.value.trim),
-  Cmd("ENV", "APPLICATION_NAME", name.value),
   Cmd("ADD", "./opt/docker", "/opt"),
   Cmd("RUN", s"mv /opt/${entryScript} /opt/bin/${entryScript}"),
   Cmd("RUN", s"chmod +x /opt/bin/${entryScript}"),

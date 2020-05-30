@@ -24,3 +24,6 @@ Things to be considered when switching to Zio
 
 ## Swagger api docs
 Http4s support swagger api docs by `rho-swagger`.  https://github.com/http4s/rho
+
+## Integration test
+Test on the dockerized application 
