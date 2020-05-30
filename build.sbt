@@ -68,7 +68,6 @@ dockerCommands := Seq(
   Cmd("ENV", "APPLICATION_VERSION", version.value.trim),
   Cmd("ENV", "APPLICATION_NAME", name.value),
   Cmd("ADD", "./opt/docker", "/opt"),
-  Cmd("EXPOSE", "9000 9000"),
   Cmd("RUN", s"mv /opt/${entryScript} /opt/bin/${entryScript}"),
   Cmd("RUN", s"chmod +x /opt/bin/${entryScript}"),
   Cmd("CMD", s"/opt/bin/${entryScript} /opt/bin/${name.value}")
