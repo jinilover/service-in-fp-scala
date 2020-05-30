@@ -180,11 +180,13 @@ object Mock {
   }
 
   class MockServiceForRemoveZeroLink[F[_]]
-    (implicit F: Monad[F])
+    (implicit F: MonadError[F, Throwable])
     extends DummyService[F] {
 
-    override def removeLink(id: LinkId): F[String] =
-      F.pure(s"No need to remove non-exist linkid ${id.unwrap}")
+    override def removeLink(id: LinkId): F[String] = {
+      val inputErr = InputError(s"Fails to remove non-exist linkid ${id.unwrap}")
+      F.raiseError(inputErr)
+    }
   }
 
   // mock log

@@ -205,7 +205,7 @@ class WebApiSpec extends Specification with ScalaCheck {
     val routes = createRoutes(new MockServiceForRemoveZeroLink[IO])
     val req = Request[IO](Method.DELETE, Uri(path = s"/links/${sampleLinkId}"))
 
-    checkRes(routes.run(req), Status.Ok, Some(s"No need to remove non-exist linkid $sampleLinkId"))
+    checkRes(routes.run(req), Status.BadRequest, Some(s"Fails to remove non-exist linkid $sampleLinkId"))
   }
 
   private def createEntityBody(s: String)(implicit E: EntityEncoder[IO, String]): EntityBody[IO] =

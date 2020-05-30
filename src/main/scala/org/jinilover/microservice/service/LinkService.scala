@@ -6,7 +6,7 @@ import java.time.Clock
 
 import cats.MonadError
 import cats.syntax.monadError._
-import cats.syntax.functor._
+import cats.syntax.flatMap._
 import cats.syntax.apply._
 
 import LinkTypes.{UserId, LinkId, Link, LinkStatus, SearchLinkCriteria}
@@ -71,10 +71,11 @@ object LinkService {
       persistence.update(id, confirmDate = clock.instant(), status = LinkStatus.Accepted)
 
     override def removeLink(id: LinkId): F[String] =
-      // TODO better to raise error if it got 0
-      persistence.remove(id).map {
-        case 0 => s"No need to remove non-exist linkid ${id.unwrap}"
-        case _ => s"Linkid ${id.unwrap} removed successfully"
+      persistence.remove(id).flatMap {
+        case 0 =>
+          val inputErr = InputError(s"Fails to remove non-exist linkid ${id.unwrap}")
+          log.warn(inputErr.msg) *> F.raiseError(inputErr)
+        case _ => F.pure(s"Linkid ${id.unwrap} removed successfully")
       }
 
     override def getLinks(userId: UserId

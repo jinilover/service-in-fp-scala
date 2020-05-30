@@ -67,7 +67,11 @@ object WebApi {
         linkService.acceptLink(LinkId(linkId)) *> Ok(s"LinkId $linkId accepted")
 
       case DELETE -> Root / "links" / linkId =>
-        linkService.removeLink(LinkId(linkId)).flatMap(msg => Ok(msg))
+        linkService.removeLink(LinkId(linkId))
+          .redeemWith(
+            { case InputError(msg) => BadRequest(msg) },
+            msg => Ok(msg)
+          )
     }
 
     def authedRoutes: AuthedRoutes[UserId, F] = AuthedRoutes.of {

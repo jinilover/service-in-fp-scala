@@ -95,16 +95,17 @@ class LinkServiceSpec extends Specification with ScalaCheck {
     val mockDb = new MockDbForRemoveLink[MonadStack]
     val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
 
-    // there is 1 link originally inside mockDb
-    // in removing dummyLinkId the 1st time, mockDb return 1 link is deleted and decrement its state by 1
-    // so in removing dummyLinkId the 2nd time, mockDb return `state = 0`
-    // s.t. service will return a different message
-    val expectedMsgs = List(
-      s"Linkid ${dummyLinkId.unwrap} removed successfully"
-    , s"No need to remove non-exist linkid ${dummyLinkId.unwrap}")
-    List.fill(2)(dummyLinkId).traverse(service.removeLink).run(1).map {
-      case (_, msgs) => msgs must be_==(expectedMsgs)
-    }.unsafeRunSync()
+    val removeLink = service.removeLink(dummyLinkId)
+    // first run should return a msg of link removed successfully
+    val (state2, result1) = removeLink.run(1).unsafeRunSync()
+    // second run should throw error that link not exist
+    val run2 = removeLink.run(state2)
+
+    (result1 must be_==(s"Linkid ${dummyLinkId.unwrap} removed successfully")) and
+    (run2.unsafeRunSync() must throwAn[InputError].like { case InputError(err) =>
+      err must be_==(s"Fails to remove non-exist linkid ${dummyLinkId.unwrap}")
+    })
+
   }
 
   def getLinks = prop { (uid: UserId, status: Option[LinkStatus], isInitiator: Option[Boolean]) =>
