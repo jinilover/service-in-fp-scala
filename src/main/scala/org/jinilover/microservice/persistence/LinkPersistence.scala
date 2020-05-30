@@ -18,7 +18,7 @@ import Doobie._
 
 trait LinkPersistence[F[_]] {
   def add(link: Link): F[LinkId]
-  def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): F[Unit]
+  def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): F[Int]
   def get(id: LinkId): F[Option[Link]]
   def getByUniqueKey(uid1: UserId, uid2: UserId): F[Option[Link]]
   def getLinks(srchCriteria: SearchLinkCriteria): F[List[LinkId]]
@@ -80,12 +80,12 @@ object LinkPersistence {
       fragment.query[LinkId].to[List].transact(xa)
     }
 
-    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): IO[Unit] = {
+    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): IO[Int] = {
       sql"""
           UPDATE links
           set status = $status, confirm_date = $confirmDate
           where id = $linkId
-        """.update.run.transact(xa).void
+        """.update.run.transact(xa)
     }
 
     override def remove(id: LinkId): IO[Int] = {

@@ -68,7 +68,13 @@ object LinkService {
 
     override def acceptLink(id: LinkId): F[Unit] =
       // TODO better to change db to return Int and raise error if it return 0
-      persistence.update(id, confirmDate = clock.instant(), status = LinkStatus.Accepted)
+      persistence.update(id, confirmDate = clock.instant(), status = LinkStatus.Accepted) *> F.pure(())
+//    persistence.update(id, confirmDate = clock.instant(), status = LinkStatus.Accepted).flatMap {
+//      case 0 =>
+//        val inputErr = InputError(s"Fails to accpet non-exist linkid ${id.unwrap}")
+//        log.warn(inputErr.msg) *> F.raiseError(inputErr)
+//      case _ => F.pure(s"Linkid ${id.unwrap} removed successfully")
+//    }
 
     override def removeLink(id: LinkId): F[String] =
       persistence.remove(id).flatMap {

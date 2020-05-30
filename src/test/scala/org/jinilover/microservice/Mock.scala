@@ -66,7 +66,7 @@ object Mock {
   class DummyPersistence[F[_]] extends LinkPersistence[F] {
     override def add(link: LinkTypes.Link): F[LinkId] = ???
 
-    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): F[Unit] = ???
+    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): F[Int] = ???
 
     override def get(id: LinkId): F[Option[LinkTypes.Link]] = ???
 
@@ -101,12 +101,12 @@ object Mock {
     }
   }
 
- class MockDbForUpdateLink[F[_]]
+ class MockDbForUpdateLink[F[_]: Monad]
     (implicit MS: MonadState[F, (LinkId, Instant, LinkStatus)])
     extends DummyPersistence[F] {
 
-    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): F[Unit] =
-      MS set (linkId, confirmDate, status)
+    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): F[Int] =
+      MS.set(linkId, confirmDate, status) *> MS.monad.pure(1)
   }
 
   class MockDbForRemoveLink[F[_]: Monad]
@@ -150,6 +150,7 @@ object Mock {
 
     override def acceptLink(id: LinkId): F[Unit] =
       MS.set(id)
+//        MS.set(id) *> MS.monad.pure(s"Linkid ${id.unwrap} removed successfully")
   }
 
   class MockServiceForSuccessAddLink[F[_]: Monad]

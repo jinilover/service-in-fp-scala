@@ -62,9 +62,9 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
         ${step(reasonOfStep)}
         should add links and retrieve the links accordingly $addLinks
         ${step{reasonOfStep}}
-        should update 1 link and retrieve the link correctly $updateLink
+        should return 1 when there is 1 link updated or else 0 $updateLink
         ${step{reasonOfStep}}
-        should remove 1 link successfully $removeLink
+        should return 1 when there is 1 link removed or else 0 $removeLink
         ${step{reasonOfStep}}
         should add/update links and retrieve the links accordingly $addAndUpdateLinks
     """
@@ -72,6 +72,7 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
 
   def addLink = prop { (uidPair: (UserId, UserId)) =>
     val (uid1, uid2) = uidPair
+    val link = createNewLink(uid1, uid2)
 
     val linkAlreadyExists = {
       for {
@@ -81,7 +82,7 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
     }.map(_.nonEmpty)
       .unsafeRunSync()
 
-    val addIO = persistence.add(createNewLink(uid1, uid2))
+    val addIO = persistence.add(link)
 
     if (linkAlreadyExists)
       addIO.unsafeRunSync() must throwAn[PSQLException].like { case e =>
@@ -89,23 +90,16 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
       }
     else {
       val linkId = addIO.unsafeRunSync()
-      val link = persistence.get(linkId).unsafeRunSync()
-      val initiatorId = link.map(_.initiatorId)
-      val targetId = link.map(_.targetId)
-      val expectedUniqueKey = {
-        val List(s1, s2) = List(uid1, uid2).map(_.unwrap)
-        if (s1 < s2) s"${s1}_${s2}" else s"${s2}_${s1}"
-      }
+      val linkFromDb = persistence.get(linkId).unsafeRunSync()
+      val expectedUniqueKey = createUniqueKey(uid1, uid2)
 
-      (link.flatMap(_.id) must beSome(linkId)) and
-      (
-        ((initiatorId must beSome(uid1)) and (targetId must beSome(uid2))) or
-        ((initiatorId must beSome(uid2)) and (targetId must beSome(uid1)))
-      ) and
-      (link.map(_.status) must beSome(LinkStatus.Pending)) and
-      (link.flatMap(_.uniqueKey) must beSome(expectedUniqueKey)) and
-      (link.map(_.creationDate) must beSome) and
-      (link.flatMap(_.confirmDate) must beNone)
+      (linkFromDb.flatMap(_.id) must beSome(linkId)) and
+      (linkFromDb.map(_.initiatorId) must beSome(uid1)) and
+      (linkFromDb.map(_.targetId) must beSome(uid2)) and
+      (linkFromDb.map(_.status) must beSome(LinkStatus.Pending)) and
+      (linkFromDb.flatMap(_.uniqueKey) must beSome(expectedUniqueKey)) and
+      (linkFromDb.map(_.creationDate) must beSome(link.creationDate)) and
+      (linkFromDb.flatMap(_.confirmDate) must beNone)
     }
   }.setArbitrary(unequalUserIdsPairArbitrary)
 
@@ -127,22 +121,31 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
   }
 
   // similar to `addLink` but it also update the status/confirmDate afterwards
-  def updateLink = {
-    val linkId = persistence.add(mika_add_eren).unsafeRunSync()
+  def updateLink = prop { (uidPair: (UserId, UserId)) =>
+    val (uid1, uid2) = uidPair
+    val link = createNewLink(uid1, uid2)
+    val linkId = persistence.add(link).unsafeRunSync()
 
+    // when updated, it should return 1
     val confirmDate = clock.instant()
-    persistence.update(linkId, confirmDate, LinkStatus.Accepted).unsafeRunSync()
-
+    val noOfUpdated1 = persistence.update(linkId, confirmDate, LinkStatus.Accepted).unsafeRunSync()
     val linkFromDb = persistence.get(linkId).unsafeRunSync()
+    val expectedUniqueKey = createUniqueKey(uid1, uid2)
 
+    // after remove and attempt to update, it should return 0
+    persistence.remove(linkId).unsafeRunSync()
+    val noOfUpdated2 = persistence.update(linkId, confirmDate, LinkStatus.Accepted).unsafeRunSync()
+
+    (noOfUpdated1 must be_==(1)) and
+    (noOfUpdated2 must be_==(0)) and
     (linkFromDb.flatMap(_.id) must beSome(linkId)) and
-    (linkFromDb.map(_.initiatorId) must beSome(mikasa)) and
-    (linkFromDb.map(_.targetId) must beSome(eren)) and
+    (linkFromDb.map(_.initiatorId) must beSome(uid1)) and
+    (linkFromDb.map(_.targetId) must beSome(uid2)) and
     (linkFromDb.map(_.status) must beSome(LinkStatus.Accepted)) and // status must be `Accept` due to update
-    (linkFromDb.flatMap(_.uniqueKey) must beSome("eren_mikasa")) and
-    (linkFromDb.map(_.creationDate) must beSome(mika_add_eren.creationDate)) and
+    (linkFromDb.flatMap(_.uniqueKey) must beSome(expectedUniqueKey)) and
+    (linkFromDb.map(_.creationDate) must beSome(link.creationDate)) and
     (linkFromDb.flatMap(_.confirmDate) must beSome(confirmDate)) // confirmDate nonEmpty due to update
-  }
+  }.setArbitrary(unequalUserIdsPairArbitrary)
 
   // similar to `addLinks` but this time the query result will be slightly different
   // as some links are updated the status
@@ -184,5 +187,8 @@ class LinkPersistenceSpec extends Specification with ScalaCheck with BeforeEach 
     (removedLinkFromDb must beEmpty)
   }.setArbitrary(unequalUserIdsPairArbitrary)
 
-
+  private def createUniqueKey(uid1: UserId, uid2: UserId) = {
+    val List(s1, s2) = List(uid1, uid2).map(_.unwrap)
+    if (s1 < s2) s"${s1}_${s2}" else s"${s2}_${s1}"
+  }
 }
