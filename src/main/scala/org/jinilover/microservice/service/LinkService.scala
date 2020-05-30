@@ -67,9 +67,11 @@ object LinkService {
       persistence.get(id)
 
     override def acceptLink(id: LinkId): F[Unit] =
+      // TODO better to change db to return Int and raise error if it return 0
       persistence.update(id, confirmDate = clock.instant(), status = LinkStatus.Accepted)
 
     override def removeLink(id: LinkId): F[String] =
+      // TODO better to raise error if it got 0
       persistence.remove(id).map {
         case 0 => s"No need to remove non-exist linkid ${id.unwrap}"
         case _ => s"Linkid ${id.unwrap} removed successfully"
