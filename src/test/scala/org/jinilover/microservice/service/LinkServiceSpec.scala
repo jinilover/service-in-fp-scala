@@ -27,8 +27,11 @@ class LinkServiceSpec extends Specification with ScalaCheck {
       LinkService
         should not allow user to link himself $addUser
         should handle unique key violation from db $handleUniqueKeyViolation
-        should pass correct arguments in acceptLink $acceptLink
-        should handle the value from db.remove properly $removeLink
+        should pass correct arguments in acceptLink $passCorrectArgsToDbInAcceptLink
+        should return success msg when accepted 1 link $acceptOneLink
+        should raise error when accepted 0 link $acceptZeroLink
+        should return success msg when removed 1 link $removeOneLink
+        should raise error when removed 0 link $removeZeroLink
         should form the required search criteria in getLinks $getLinks
         should pass the linkId to db in getLink $getLink
     """
@@ -71,7 +74,7 @@ class LinkServiceSpec extends Specification with ScalaCheck {
     }.unsafeRunSync()
   }.setArbitrary(unequalUserIdsPairArbitrary)
 
-  def acceptLink = {
+  def passCorrectArgsToDbInAcceptLink = {
     type S = (LinkId, Instant, LinkStatus)
     type MonadStack[A] = StateT[IO, S, A]
 
@@ -88,24 +91,44 @@ class LinkServiceSpec extends Specification with ScalaCheck {
     }.unsafeRunSync()
   }
 
-  def removeLink = {
-    type MonadStack[A] = StateT[IO, Int, A]
+  def acceptOneLink = {
+    val log = Log.default.unsafeRunSync()
+    val mockDb = new MockDbForNoOfLinkUpdated[IO](1)
+    val service = LinkService.default[IO](mockDb, clock, log)
 
-    val dummyLog = new MockLogMonadState[MonadStack, Int]
-    val mockDb = new MockDbForRemoveLink[MonadStack]
-    val service = LinkService.default[MonadStack](mockDb, clock, dummyLog)
+    service.acceptLink(dummyLinkId).map {
+      _ must be_==(s"Linkid ${dummyLinkId.unwrap} accepted successfully")
+    }.unsafeRunSync()
+  }
 
-    val removeLink = service.removeLink(dummyLinkId)
-    // first run should return a msg of link removed successfully
-    val (state2, result1) = removeLink.run(1).unsafeRunSync()
-    // second run should throw error that link not exist
-    val run2 = removeLink.run(state2)
+  def acceptZeroLink = {
+    val log = Log.default.unsafeRunSync()
+    val mockDb = new MockDbForNoOfLinkUpdated[IO](0)
+    val service = LinkService.default[IO](mockDb, clock, log)
 
-    (result1 must be_==(s"Linkid ${dummyLinkId.unwrap} removed successfully")) and
-    (run2.unsafeRunSync() must throwAn[InputError].like { case InputError(err) =>
+    service.acceptLink(dummyLinkId).unsafeRunSync() must throwAn[InputError].like { case InputError(err) =>
+      err must be_==(s"Fails to accpet non-exist linkid ${dummyLinkId.unwrap}")
+    }
+  }
+
+  def removeOneLink = {
+    val log = Log.default.unsafeRunSync()
+    val mockDb = new MockDbForNoOfLinkRemoved[IO](1)
+    val service = LinkService.default[IO](mockDb, clock, log)
+
+    service.removeLink(dummyLinkId).map {
+      _ must be_==(s"Linkid ${dummyLinkId.unwrap} removed successfully")
+    }.unsafeRunSync()
+  }
+
+  def removeZeroLink = {
+    val log = Log.default.unsafeRunSync()
+    val mockDb = new MockDbForNoOfLinkRemoved[IO](0)
+    val service = LinkService.default[IO](mockDb, clock, log)
+
+    service.removeLink(dummyLinkId).unsafeRunSync() must throwAn[InputError].like { case InputError(err) =>
       err must be_==(s"Fails to remove non-exist linkid ${dummyLinkId.unwrap}")
-    })
-
+    }
   }
 
   def getLinks = prop { (uid: UserId, status: Option[LinkStatus], isInitiator: Option[Boolean]) =>

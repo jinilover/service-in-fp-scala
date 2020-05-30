@@ -64,7 +64,11 @@ object WebApi {
           .flatMap(linkIds => Ok(linkIds))
 
       case PUT -> Root / "links" / linkId =>
-        linkService.acceptLink(LinkId(linkId)) *> Ok(s"LinkId $linkId accepted")
+        linkService.acceptLink(LinkId(linkId))
+          .redeemWith(
+            { case InputError(msg) => BadRequest(msg) },
+            msg => Ok(msg)
+          )
 
       case DELETE -> Root / "links" / linkId =>
         linkService.removeLink(LinkId(linkId))

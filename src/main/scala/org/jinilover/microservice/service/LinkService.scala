@@ -14,7 +14,7 @@ import persistence.LinkPersistence
 
 trait LinkService[F[_]] {
   def addLink(initiatorId: UserId, targetId: UserId): F[LinkId]
-  def acceptLink(id: LinkId): F[Unit]
+  def acceptLink(id: LinkId): F[String]
   def getLink(id: LinkId): F[Option[Link]]
   def removeLink(id: LinkId): F[String]
   def getLinks(userId: UserId
@@ -66,15 +66,13 @@ object LinkService {
     override def getLink(id: LinkId): F[Option[Link]] =
       persistence.get(id)
 
-    override def acceptLink(id: LinkId): F[Unit] =
-      // TODO better to change db to return Int and raise error if it return 0
-      persistence.update(id, confirmDate = clock.instant(), status = LinkStatus.Accepted) *> F.pure(())
-//    persistence.update(id, confirmDate = clock.instant(), status = LinkStatus.Accepted).flatMap {
-//      case 0 =>
-//        val inputErr = InputError(s"Fails to accpet non-exist linkid ${id.unwrap}")
-//        log.warn(inputErr.msg) *> F.raiseError(inputErr)
-//      case _ => F.pure(s"Linkid ${id.unwrap} removed successfully")
-//    }
+    override def acceptLink(id: LinkId): F[String] =
+      persistence.update(id, confirmDate = clock.instant(), status = LinkStatus.Accepted).flatMap {
+        case 0 =>
+          val inputErr = InputError(s"Fails to accpet non-exist linkid ${id.unwrap}")
+          log.warn(inputErr.msg) *> F.raiseError(inputErr)
+        case _ => F.pure(s"Linkid ${id.unwrap} accepted successfully")
+      }
 
     override def removeLink(id: LinkId): F[String] =
       persistence.remove(id).flatMap {

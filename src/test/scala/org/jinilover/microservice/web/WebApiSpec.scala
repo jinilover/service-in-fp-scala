@@ -41,7 +41,9 @@ class WebApiSpec extends Specification with ScalaCheck {
         GET   /users/userId/links extract the required query parameter $getLinksWithQueryParams
         GET   /links/linkId for unauthorised req $unauthorisedGetLink
         GET   /links/linkId for existing or non-exist link $getLink
-        PUT   /links/linkId for accepting a link $acceptLink
+        PUT   /links/linkId extract the accepting linkId and pass to service correctly $passCorrectArgInAcceptLink
+        PUT   /links/linkId return success msg when accepted 1 link $acceptOneLink
+        PUT   /links/linkId raise error when accepted 0 link $acceptZeroLink
         DELETE /links/linkId return message of deleting existing link $deleteExistingLink
         DELETE /links/linkId return message of deleting non-existing link $deleteNonExistLink
     """
@@ -177,7 +179,7 @@ class WebApiSpec extends Specification with ScalaCheck {
   }
 
   // it should extract the link id and send to backend correctly
-  def acceptLink = prop { (expectedState: LinkId) =>
+  def passCorrectArgInAcceptLink = prop { (expectedState: LinkId) =>
     type MonadStack[A] = StateT[IO, LinkId, A]
 
     val mockService = new MockServiceForAcceptLink[MonadStack]
@@ -187,6 +189,22 @@ class WebApiSpec extends Specification with ScalaCheck {
     checkBackendState(
       routes.run(req).run(LinkId("any_id_doesnt_matter"))
     , expectedState)
+  }
+
+  def acceptOneLink = {
+    val mockDb = new MockDbForNoOfLinkUpdated[IO](1)
+    val routes = createRoutes(createService(mockDb))
+    val req = Request[IO](Method.PUT, Uri().withPath(s"/links/${dummyLinkId.unwrap}"))
+
+    checkRes(routes.run(req), Status.Ok, Some(s"Linkid ${dummyLinkId.unwrap} accepted successfully"))
+  }
+
+  def acceptZeroLink = {
+    val mockDb = new MockDbForNoOfLinkUpdated[IO](0)
+    val routes = createRoutes(createService(mockDb))
+    val req = Request[IO](Method.PUT, Uri().withPath(s"/links/${dummyLinkId.unwrap}"))
+
+    checkRes(routes.run(req), Status.BadRequest, Some(s"Fails to accpet non-exist linkid ${dummyLinkId.unwrap}"))
   }
 
   // when there is a link
