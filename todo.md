@@ -12,7 +12,7 @@ https://tpolecat.github.io/doobie/docs/14-Managing-Connections.html
 Use bracket to clean up resource when the application is finished or when it fails.  https://typelevel.org/cats-effect/
 
 ## Retry policy
-Unlike Zio's `IO`, cats `IO` doesn't provide retry policy.  It may need to have a look on how Zio implements the retry policy or switch to use Zio.
+Cats `IO` doesn't provide retry policy.  `cats-retry` https://github.com/cb372/cats-retry provides a solution for it.
 
 ## Zio
 Zio's `IO` supports more features
