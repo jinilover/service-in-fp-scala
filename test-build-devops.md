@@ -59,7 +59,7 @@ dockerCommands := Seq(
 * Run `sbt docker:publishLocal` to build the image.
 * Type `docker images`.  The image should be available at the local repository.
 * Prepare `docker-compose.yml` to set up the containers of postgres db and the REST service.
-* Run `docker-compose up`
+* Run `docker-compose up -d`
 * Test it by typing http://localhost:9000/
 
 ## Reference
