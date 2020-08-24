@@ -12,6 +12,11 @@ libraryDependencies ++= Dependencies.compile ++ Dependencies.test
 addCompilerPlugin("org.typelevel" %% "kind-projector"     % "0.10.3")
 addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1")
 
+configs(IntegrationTest)
+Defaults.itSettings
+
+dependencyClasspath in IntegrationTest := (dependencyClasspath in IntegrationTest).value ++ (exportedProducts in Test).value
+
 scalacOptions ++= Seq(
   "-deprecation",
   "-encoding", "UTF-8",

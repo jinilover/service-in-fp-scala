@@ -1,4 +1,3 @@
-import Dependencies.dep
 import sbt._
 
 object Dependencies {
@@ -33,7 +32,7 @@ object Dependencies {
   ).flatten
 
   def testDep(group: String, version: String, pkgs: String*) =
-    dep(group, version, pkgs:_*).map(_ % "test").toSeq
+    dep(group, version, pkgs:_*).map(_ % "it, test").toSeq
 
   def dep(group: String, version: String, pkgs: String*) =
     pkgs.map(group %% _ % version).toSeq

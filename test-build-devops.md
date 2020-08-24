@@ -1,14 +1,26 @@
 # Build application and DevOps
 
 ## Run the unit tests
-There are some tests making use of the database.  Make sure there is database up and running.
+```
+sbt test
+```
 
-`docker run -dit --name=postgres-service-in-fp-scala -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=password -e POSTGRES_DB=postgres postgres`
+## Run integration test
+It makes use of the database.  Start database before running the test.
+```
+docker run -dit --name=postgres-service-in-fp-scala -p 5432:5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=password -e POSTGRES_DB=postgres postgres
+```
 
-Run `sbt test`
+```
+sbt "it:test"
+```
+
 
 ## Startup service for testing
-Start the REST service by `sbt run`
+Make sure the database is.  Start the REST service by 
+```
+sbt run
+```
 
 ## Dockerize the application
 When it is ready to build the docker image.

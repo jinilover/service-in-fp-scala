@@ -1,0 +1,22 @@
+<configuration>
+
+  <shutdownHook class="ch.qos.logback.core.hook.DelayingShutdownHook"/>
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{26} - %msg%n%ex{full}</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="ASYNC_STDOUT" class="ch.qos.logback.classic.AsyncAppender">
+    <appender-ref ref="STDOUT" />
+  </appender>
+
+  <root level="ERROR">
+    <appender-ref ref="ASYNC_STDOUT" />
+  </root>
+
+  <logger name="org.jinilover.microservice" level="ERROR"/>
+
+</configuration>
+
