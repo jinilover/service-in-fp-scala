@@ -19,16 +19,15 @@ object OpsService {
 
       override def versionInfo(): VersionInfo =
         VersionInfo(
-          name = BuildInfo.name
-          , version = BuildInfo.version
-          , scalaVersion = BuildInfo.scalaVersion
-          , sbtVersion = BuildInfo.sbtVersion
-          , gitCommitHash = BuildInfo.gitCommitHash
-          , gitCommitMessage = BuildInfo.gitCommitMessage
-          , gitCommitDate = BuildInfo.gitCommitDate
-          , gitCurrentBranch = BuildInfo.gitCurrentBranch
+          name = BuildInfo.name,
+          version = BuildInfo.version,
+          scalaVersion = BuildInfo.scalaVersion,
+          sbtVersion = BuildInfo.sbtVersion,
+          gitCommitHash = BuildInfo.gitCommitHash,
+          gitCommitMessage = BuildInfo.gitCommitMessage,
+          gitCommitDate = BuildInfo.gitCommitDate,
+          gitCurrentBranch = BuildInfo.gitCurrentBranch
         )
     }
-
 
 }

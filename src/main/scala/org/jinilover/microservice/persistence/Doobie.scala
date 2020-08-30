@@ -7,15 +7,15 @@ import java.time.Instant
 
 import scala.reflect.runtime.universe.TypeTag
 
-import cats.effect.{ContextShift, IO}
+import cats.effect.{ ContextShift, IO }
 
-import scalaz.{@@, Tag}
+import scalaz.{ @@, Tag }
 
 import doobie._
 import doobie.implicits.javasql._
 
 import ConfigTypes.DbConfig
-import LinkTypes.{LinkId, LinkStatus, UserId, toLinkStatus}
+import LinkTypes.{ LinkId, LinkStatus, UserId, toLinkStatus }
 
 object Doobie {
   private def taggedMeta[A: Meta: TypeTag, T: TypeTag]: Meta[A @@ T] =
@@ -33,13 +33,6 @@ object Doobie {
   implicit val UserIdMeta: Meta[UserId] =
     taggedMeta[String, UserId.Marker]
 
-
-  def transactor(dbConfig: DbConfig)
-                (implicit cs: ContextShift[IO]): Transactor[IO] =
-    Transactor.fromDriverManager[IO](
-      "org.postgresql.Driver"
-    , dbConfig.url
-    , dbConfig.user
-    , dbConfig.password
-    )
+  def transactor(dbConfig: DbConfig)(implicit cs: ContextShift[IO]): Transactor[IO] =
+    Transactor.fromDriverManager[IO]("org.postgresql.Driver", dbConfig.url, dbConfig.user, dbConfig.password)
 }

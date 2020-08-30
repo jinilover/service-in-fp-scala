@@ -9,7 +9,7 @@ import cats.syntax.monadError._
 import cats.syntax.flatMap._
 import cats.syntax.apply._
 
-import LinkTypes.{UserId, LinkId, Link, LinkStatus, SearchLinkCriteria}
+import LinkTypes.{ Link, LinkId, LinkStatus, SearchLinkCriteria, UserId }
 import persistence.LinkPersistence
 
 trait LinkService[F[_]] {
@@ -17,48 +17,45 @@ trait LinkService[F[_]] {
   def acceptLink(id: LinkId): F[String]
   def getLink(id: LinkId): F[Option[Link]]
   def removeLink(id: LinkId): F[String]
-  def getLinks(userId: UserId
-             , linkStatusOpt: Option[LinkStatus]
-             , isInitiatorOps: Option[Boolean]): F[List[LinkId]]
+  def getLinks(
+    userId: UserId,
+    linkStatusOpt: Option[LinkStatus],
+    isInitiatorOps: Option[Boolean]
+  ): F[List[LinkId]]
 }
 
 object LinkService {
-  def default[F[_]]
-    ( persistence: LinkPersistence[F]
-    , clock: Clock
-    , log: Log[F] )
-    (implicit F: MonadError[F, Throwable]): LinkService[F] =
+  def default[F[_]](persistence: LinkPersistence[F], clock: Clock, log: Log[F])(implicit
+    F: MonadError[F, Throwable]
+  ): LinkService[F] =
     new LinkServiceImpl[F](persistence, clock, log)
 
-  class LinkServiceImpl[F[_]]
-    ( persistence: LinkPersistence[F]
-    , clock: Clock
-    , log: Log[F] )
-    (implicit F: MonadError[F, Throwable])
-    extends LinkService[F] {
+  class LinkServiceImpl[F[_]](persistence: LinkPersistence[F], clock: Clock, log: Log[F])(implicit
+    F: MonadError[F, Throwable]
+  ) extends LinkService[F] {
 
     override def addLink(initiatorId: UserId, targetId: UserId): F[LinkId] =
       if (initiatorId == targetId) {
         val err = InputError("Both user ids are the same")
         log.error(err) *> F.raiseError(err)
-      }
-      else {
+      } else {
         val link = Link(
-          initiatorId = initiatorId
-        , targetId = targetId
-        , status = LinkStatus.Pending
-        , creationDate = clock.instant)
+          initiatorId = initiatorId,
+          targetId = targetId,
+          status = LinkStatus.Pending,
+          creationDate = clock.instant
+        )
 
-        persistence.add(link)
+        persistence
+          .add(link)
           .redeemWith(
-            err => {
+            err =>
               if (err.getMessage.toLowerCase contains """violates unique constraint "unique_unique_key"""") {
-                val inputErr = InputError(s"Link between ${initiatorId.unwrap} and ${targetId.unwrap} already exists")
+                val inputErr =
+                  InputError(s"Link between ${initiatorId.unwrap} and ${targetId.unwrap} already exists")
                 log.warn(inputErr.msg) *> F.raiseError(inputErr)
-              }
-              else
-                F.raiseError(err)
-            },
+              } else
+                F.raiseError(err),
             F.pure
           )
       }
@@ -82,11 +79,11 @@ object LinkService {
         case _ => F.pure(s"Linkid ${id.unwrap} removed successfully")
       }
 
-    override def getLinks(userId: UserId
-                        , linkStatusOpt: Option[LinkStatus]
-                        , isInitiatorOps: Option[Boolean]): F[List[LinkId]] =
-      persistence.getLinks(
-        SearchLinkCriteria(userId, linkStatusOpt, isInitiatorOps)
-      )
+    override def getLinks(
+      userId: UserId,
+      linkStatusOpt: Option[LinkStatus],
+      isInitiatorOps: Option[Boolean]
+    ): F[List[LinkId]] =
+      persistence.getLinks(SearchLinkCriteria(userId, linkStatusOpt, isInitiatorOps))
   }
 }

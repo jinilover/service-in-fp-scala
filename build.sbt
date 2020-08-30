@@ -1,3 +1,4 @@
+import org.scalafmt.sbt.ScalafmtPlugin.scalafmtConfigSettings
 
 name := "service-in-fp-scala"
 
@@ -14,12 +15,14 @@ addCompilerPlugin("com.olegpy"    %% "better-monadic-for" % "0.3.1")
 
 configs(IntegrationTest)
 Defaults.itSettings
+inConfig(IntegrationTest)(scalafmtConfigSettings)
 
 dependencyClasspath in IntegrationTest := (dependencyClasspath in IntegrationTest).value ++ (exportedProducts in Test).value
 
 scalacOptions ++= Seq(
   "-deprecation",
-  "-encoding", "UTF-8",
+  "-encoding",
+  "UTF-8",
   "-language:higherKinds",
   "-language:postfixOps",
   "-feature",
@@ -44,12 +47,7 @@ gitCommitDate := git.gitHeadCommitDate.value.getOrElse("No commit yet")
 val gitCurrentBranch = SettingKey[String]("gitCurrentBranch")
 gitCurrentBranch := git.gitCurrentBranch.value
 
-buildInfoKeys ++= Seq(
-  gitCommitHash,
-  gitCommitMessage,
-  gitCommitDate,
-  gitCurrentBranch
-)
+buildInfoKeys ++= Seq(gitCommitHash, gitCommitMessage, gitCommitDate, gitCurrentBranch)
 
 enablePlugins(JavaAppPackaging)
 
@@ -75,5 +73,3 @@ dockerCommands := Seq(
   Cmd("RUN", s"chmod +x /opt/bin/${entryScript}"),
   Cmd("CMD", s"/opt/bin/${entryScript} /opt/bin/${name.value}")
 )
-
-

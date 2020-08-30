@@ -3,10 +3,10 @@ package microservice
 
 import java.time.Instant
 
-import io.circe.generic.semiauto.{deriveEncoder, deriveDecoder}
-import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{ deriveDecoder, deriveEncoder }
+import io.circe.{ Decoder, Encoder }
 
-import scalaz.{@@, Tag}
+import scalaz.{ @@, Tag }
 
 object LinkTypes {
   type UserId = String @@ UserId.Marker
@@ -20,7 +20,6 @@ object LinkTypes {
 
   implicit def taggedTypeDecoder[A, T](implicit DA: Decoder[A]): Decoder[A @@ T] =
     DA.map(Tag.apply[A, T])
-
 
   sealed trait LinkStatus
   object LinkStatus {
@@ -36,33 +35,34 @@ object LinkTypes {
       }
   }
 
-  case class Link(id: Option[LinkId] = None
-                , initiatorId: UserId
-                , targetId: UserId
-                , status: LinkStatus
-                , creationDate: Instant
-                , confirmDate: Option[Instant] = None
-                , uniqueKey: Option[String] = None
-               )
+  case class Link(
+    id: Option[LinkId] = None,
+    initiatorId: UserId,
+    targetId: UserId,
+    status: LinkStatus,
+    creationDate: Instant,
+    confirmDate: Option[Instant] = None,
+    uniqueKey: Option[String] = None
+  )
 
   object Link {
     implicit val linkEncoder: Encoder[Link] = deriveEncoder
     implicit val linkDecoder: Decoder[Link] = deriveDecoder
   }
 
-  case class SearchLinkCriteria(userId: UserId
-                              , linkStatus: Option[LinkStatus] = None
-                              , isInitiator: Option[Boolean] = None
-                             )
+  case class SearchLinkCriteria(
+    userId: UserId,
+    linkStatus: Option[LinkStatus] = None,
+    isInitiator: Option[Boolean] = None
+  )
 
   def linkKey(userIds: UserId*): String =
     userIds.map(_.unwrap).sorted.mkString("_")
 
-  def toLinkStatus(s: String): LinkStatus = {
+  def toLinkStatus(s: String): LinkStatus =
     if (s.toUpperCase == LinkStatus.Pending.toString.toUpperCase)
       LinkStatus.Pending
     else
       LinkStatus.Accepted
-  }
 
 }

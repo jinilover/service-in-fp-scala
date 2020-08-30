@@ -1,8 +1,8 @@
 package org.jinilover
 package microservice
 
-import org.scalacheck.{Arbitrary, Gen}
-import org.jinilover.microservice.LinkTypes.{LinkId, LinkStatus, UserId}
+import org.scalacheck.{ Arbitrary, Gen }
+import org.jinilover.microservice.LinkTypes.{ LinkId, LinkStatus, UserId }
 import Mock._
 
 object LinkTypeArbitraries {

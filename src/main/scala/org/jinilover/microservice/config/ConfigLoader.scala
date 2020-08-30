@@ -20,9 +20,6 @@ object ConfigLoader {
     override def load: IO[AppConfig] =
       IO {
         ConfigSource.default.at("org.jinilover.microservice").loadOrThrow[AppConfig]
-      }.redeemWith(
-        e => IO.raiseError(new ConfigError(e.getMessage)),
-        a => IO(a)
-      )
+      }.redeemWith(e => IO.raiseError(new ConfigError(e.getMessage)), a => IO(a))
   }
 }

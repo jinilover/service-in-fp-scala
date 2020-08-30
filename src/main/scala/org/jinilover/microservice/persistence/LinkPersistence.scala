@@ -13,7 +13,7 @@ import doobie.syntax.connectionio._
 import doobie.syntax.string._
 import doobie.Fragments.whereAndOpt
 
-import LinkTypes.{LinkId, Link, LinkStatus, SearchLinkCriteria, UserId, linkKey}
+import LinkTypes.{ Link, LinkId, LinkStatus, SearchLinkCriteria, UserId, linkKey }
 import Doobie._
 
 trait LinkPersistence[F[_]] {
@@ -41,13 +41,12 @@ object LinkPersistence {
          """.update.run.transact(xa) *> IO(linkId)
     }
 
-    override def get(id: LinkId): IO[Option[Link]] = {
+    override def get(id: LinkId): IO[Option[Link]] =
       sql"""
             SELECT id, initiator_id, target_id, status, creation_date, confirm_date, unique_key
             FROM links
             WHERE id = $id
         """.query[Link].option.transact(xa)
-    }
 
     override def getByUniqueKey(uid1: UserId, uid2: UserId): IO[Option[Link]] = {
       val uniqueKey = linkKey(uid1, uid2)
@@ -66,9 +65,7 @@ object LinkPersistence {
 
       val byUserId = isInitiator.map { bool =>
         if (bool) userIsInitiator else userIsTarget
-      }.orElse(
-        Some(fr"(" ++ userIsInitiator ++ fr" OR " ++ userIsTarget ++ fr")")
-      )
+      }.orElse(Some(fr"(" ++ userIsInitiator ++ fr" OR " ++ userIsTarget ++ fr")"))
 
       val byLinkStatus = linkStatus.map(v => fr"status = $v")
 
@@ -80,20 +77,18 @@ object LinkPersistence {
       fragment.query[LinkId].to[List].transact(xa)
     }
 
-    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): IO[Int] = {
+    override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): IO[Int] =
       sql"""
           UPDATE links
           set status = $status, confirm_date = $confirmDate
           where id = $linkId
         """.update.run.transact(xa)
-    }
 
-    override def remove(id: LinkId): IO[Int] = {
+    override def remove(id: LinkId): IO[Int] =
       sql"""
           DELETE FROM links
           WHERE id = $id
         """.update.run.transact(xa)
-    }
   }
 
 }

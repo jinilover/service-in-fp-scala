@@ -20,16 +20,16 @@ package object microservice {
   }
 
   object Log {
-    def default:IO[Log[IO]] = IO(new Slf4jLog)
+    def default: IO[Log[IO]] = IO(new Slf4jLog)
 
     class Slf4jLog extends Log[IO] {
       private val logger = LoggerFactory.getLogger("org.jinilover.microservice")
 
       override def error(err: Error): IO[Unit] =
         err match {
-          case InputError(msg) => IO(logger.warn(msg))
+          case InputError(msg)       => IO(logger.warn(msg))
           case ThrowableError(cause) => IO(logger.error("", cause))
-          case ConfigError(msg) => IO(logger.error(msg))
+          case ConfigError(msg)      => IO(logger.error(msg))
         }
 
       override def warn(msg: String): IO[Unit] = IO(logger.warn(msg))

@@ -6,13 +6,13 @@ import java.util.concurrent.Executors
 
 import scala.concurrent.ExecutionContext
 
-import cats.effect.{ExitCode, IO, IOApp}
+import cats.effect.{ ExitCode, IO, IOApp }
 import cats.implicits._
 
 import config.ConfigLoader
-import persistence.{Doobie, LinkPersistence, Migrations}
+import persistence.{ Doobie, LinkPersistence, Migrations }
 import service.LinkService
-import web.{WebApi, WebServer}
+import web.{ WebApi, WebServer }
 import ops.OpsService
 
 object Main extends IOApp {
@@ -26,7 +26,7 @@ object Main extends IOApp {
       appConfig <- ConfigLoader.default.load
 
       log <- Log.default
-      _ <- Migrations.default(log, appConfig.db).migrate
+      _   <- Migrations.default(log, appConfig.db).migrate
 
       xa = Doobie.transactor(appConfig.db)
       persistence = LinkPersistence.default(xa)

@@ -4,7 +4,7 @@ package web
 
 import scala.concurrent.ExecutionContext
 
-import cats.effect.{ContextShift, ExitCode, IO, Timer}
+import cats.effect.{ ContextShift, ExitCode, IO, Timer }
 
 import fs2.Stream
 
@@ -17,21 +17,18 @@ trait WebServer[F[_]] {
 }
 
 object WebServer {
-  def default(
-       routes: WebApi[IO]
-     , webConfig: WebServerConfig)(
-       implicit ec: ExecutionContext
-     , timer: Timer[IO]
-     , F: ContextShift[IO]) : WebServer[IO] =
+  def default(routes: WebApi[IO], webConfig: WebServerConfig)(implicit
+    ec: ExecutionContext,
+    timer: Timer[IO],
+    F: ContextShift[IO]
+  ): WebServer[IO] =
     new Http4sServer(routes, webConfig)
 
-  class Http4sServer(
-          routes: WebApi[IO]
-        , webConfig: WebServerConfig)(
-          implicit ec: ExecutionContext
-        , timer: Timer[IO]
-        , F: ContextShift[IO])
-    extends WebServer[IO] {
+  class Http4sServer(routes: WebApi[IO], webConfig: WebServerConfig)(implicit
+    ec: ExecutionContext,
+    timer: Timer[IO],
+    F: ContextShift[IO]
+  ) extends WebServer[IO] {
 
     override def start: Stream[IO, ExitCode] =
       BlazeServerBuilder[IO]
