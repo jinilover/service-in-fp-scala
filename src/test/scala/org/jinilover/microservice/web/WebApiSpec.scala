@@ -136,8 +136,7 @@ class WebApiSpec extends Specification with ScalaCheck {
       uri"/users/eren/links?is_initiator=true",
       uri"/users/eren/links?is_initiator=false",
       uri"/users/eren/links?is_initiator=true&status=Accepted",
-      uri"/users/eren/links?status=Pending&is_initiator=true" // param order shouldn't matter
-      ,
+      uri"/users/eren/links?status=Pending&is_initiator=true", // param order shouldn't matter
       uri"/users/eren/links?is_initiator=false&status=Accepted",
       uri"/users/eren/links?status=Pending&is_initiator=false"
     ).map(Request[MonadStack](Method.GET, _))

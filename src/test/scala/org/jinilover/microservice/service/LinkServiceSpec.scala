@@ -56,7 +56,7 @@ class LinkServiceSpec extends Specification with ScalaCheck {
     prop { (userIdPair: (UserId, UserId)) =>
       val (uid1, uid2) = userIdPair
 
-      type MonadStack[A] = EitherT[StateT[IO, Set[String], ?], Throwable, A]
+    type MonadStack[A] = EitherT[StateT[IO, Set[String], *], Throwable, A]
 
       val dummyLog = new MockLogMonadStack[MonadStack, Set[String]]
       val mockDb = new MockDbViolateUniqueKey[MonadStack](dummyLinkId)

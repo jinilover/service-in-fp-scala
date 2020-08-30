@@ -83,7 +83,7 @@ object WebApi {
             .flatMap(optLink => Ok(optLink.toList))
       }
 
-    val authUser: Kleisli[OptionT[F, ?], Request[F], UserId] =
+    val authUser: Kleisli[OptionT[F, *], Request[F], UserId] =
       Kleisli { req =>
         val userIdOpt =
           req.headers.get("Authorization".ci).flatMap { header =>

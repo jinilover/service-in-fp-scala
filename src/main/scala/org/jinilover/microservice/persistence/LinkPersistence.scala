@@ -16,8 +16,8 @@ import doobie.Fragments.whereAndOpt
 import LinkTypes.{ Link, LinkId, LinkStatus, SearchLinkCriteria, UserId, linkKey }
 import Doobie._
 
-trait LinkPersistence[F[_]] {
-  def add(link: Link): F[LinkId]
+trait LinkPersistence[F[_]] { // TODO if using ZIO, `[F[_]]` can be removed
+  def add(link: Link): F[LinkId] // TODO if using ZIO, it will be `def add(link: Link): IO[LinkId]`
   def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): F[Int]
   def get(id: LinkId): F[Option[Link]]
   def getByUniqueKey(uid1: UserId, uid2: UserId): F[Option[Link]]
