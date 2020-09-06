@@ -12,6 +12,7 @@ object Dependencies {
     dep("org.scalaz", "7.2.25", "scalaz-core"),
     dep("com.github.pureconfig", "0.12.3", "pureconfig"),
     dep("dev.zio", "1.0.1", "zio"),
+    dep("dev.zio", "2.1.4.0", "zio-interop-cats"),
     Seq("ch.qos.logback" % "logback-classic" % "1.2.3"),
     Seq("org.flywaydb"   % "flyway-core"     % "5.0.7")
   ).flatten
