@@ -37,16 +37,15 @@ package object persistence {
     val live: ZLayer[Has[Transactor[Task]], Throwable, LinkStore_] =
       ZLayer.fromService[Transactor[Task], Service] { xa =>
         new Service {
-          override def add(link: Link): Task[LinkId] = {
-            val Link(_, initiatorId, targetId, status, creationDate, _, _) = link
-            val linkId = LinkId(UUID.randomUUID.toString)
-            val uniqueKey = linkKey(initiatorId, targetId)
-
-            sql"""
-                INSERT INTO links (id, initiator_id, target_id, status, creation_date, unique_key)
-                VALUES ($linkId, $initiatorId, $targetId, $status, $creationDate, $uniqueKey)
-             """.update.run.transact(xa) *> Task.effect(linkId)
-          }
+          override def add(link: Link): Task[LinkId] =
+            for {
+              linkId <- Task.effect(LinkId(UUID.randomUUID.toString))
+              Link(_, initiatorId, targetId, status, creationDate, _, _) = link
+              uniqueKey = linkKey(initiatorId, targetId)
+              _      <- sql"""INSERT INTO links (id, initiator_id, target_id, status, creation_date, unique_key)
+                            VALUES ($linkId, $initiatorId, $targetId, $status, $creationDate, $uniqueKey)
+                         """.update.run.transact(xa)
+            } yield linkId
 
           override def get(id: LinkId): Task[Option[Link]] =
             sql"""
@@ -86,16 +85,16 @@ package object persistence {
 
           override def update(linkId: LinkId, confirmDate: Instant, status: LinkStatus): Task[Int] =
             sql"""
-          UPDATE links
-          set status = $status, confirm_date = $confirmDate
-          where id = $linkId
-        """.update.run.transact(xa)
+              UPDATE links
+              set status = $status, confirm_date = $confirmDate
+              where id = $linkId
+            """.update.run.transact(xa)
 
           override def remove(id: LinkId): Task[Int] =
             sql"""
-          DELETE FROM links
-          WHERE id = $id
-        """.update.run.transact(xa)
+              DELETE FROM links
+              WHERE id = $id
+            """.update.run.transact(xa)
         }
       }
   }
