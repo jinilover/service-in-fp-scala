@@ -30,16 +30,16 @@ object LinkPersistence {
     new LinkDoobie(xa)
 
   class LinkDoobie(xa: Transactor[IO]) extends LinkPersistence[IO] {
-    override def add(link: Link): IO[LinkId] = {
-      val Link(_, initiatorId, targetId, status, creationDate, _, _) = link
-      val linkId = LinkId(UUID.randomUUID.toString)
-      val uniqueKey = linkKey(initiatorId, targetId)
-
-      sql"""
-            INSERT INTO links (id, initiator_id, target_id, status, creation_date, unique_key)
-            VALUES ($linkId, $initiatorId, $targetId, $status, $creationDate, $uniqueKey)
-         """.update.run.transact(xa) *> IO(linkId)
-    }
+    override def add(link: Link): IO[LinkId] =
+      for {
+        linkId <- IO(LinkId(UUID.randomUUID.toString))
+        Link(_, initiatorId, targetId, status, creationDate, _, _) = link
+        uniqueKey = linkKey(initiatorId, targetId)
+        _ <- sql"""
+              INSERT INTO links (id, initiator_id, target_id, status, creation_date, unique_key)
+              VALUES ($linkId, $initiatorId, $targetId, $status, $creationDate, $uniqueKey)
+           """.update.run.transact(xa) *> IO(linkId)
+      } yield linkId
 
     override def get(id: LinkId): IO[Option[Link]] =
       sql"""
